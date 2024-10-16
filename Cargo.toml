@@ -1,0 +1,15 @@
+[package]
+name = "ztrs"
+version = "0.1.0"
+edition = "2021"
+licence = "MIT"
+
+[dependencies]
+clap = { version = "4.5.20", features = ["cargo"] }
+progenitor-client = "0.8.0"
+reqwest = "0.12.8"
+serde_json = "1.0.128"
+tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
+
+zerotier_central = { path = "src/ztapi/zerotier_central" }
+zerotier_one = { path = "src/ztapi/zerotier_one" }
