@@ -33,7 +33,7 @@ pub async fn run(central_client: &central::Client, one_client: &one::Client) {
             let handler = OneCliHandler::new(one_client);
             handler.handle(subs).await;
         }
-        _ => {}
+        _ => todo!("Handle exceptional cases properly"),
     }
 }
 
@@ -73,24 +73,14 @@ impl FromEnv<central::Client> for central::Client {
 /// variables.
 impl FromEnv<one::Client> for one::Client {
     fn from_env() -> Self {
-        let mut path_buf: Option<PathBuf> = None;
-        match env::consts::OS {
-            "linux" => {
-                path_buf = Some(PathBuf::from("/var/lib/zerotier-one/"));
-            }
-            "macos" => {
-                path_buf = Some(PathBuf::from(
-                    "~/Library/Application Support/ZeroTier/",
-                ))
-            }
-            "windows" => {
-                path_buf = Some(PathBuf::from(r"\ProgramData\ZeroTier\One\"))
-            }
-            _ => {}
-        }
-        path_buf.as_mut().unwrap().push("authtoken.secret");
-        let path = path_buf.unwrap();
-        let auth_token = read_to_string(path).unwrap();
+        let mut path_buf = match env::consts::OS {
+            "linux" => PathBuf::from("/var/lib/zerotier-one/"),
+            "macos" => PathBuf::from("~/Library/Application Support/ZeroTier/"),
+            "windows" => PathBuf::from(r"\ProgramData\ZeroTier\One\"),
+            _ => todo!("Handle unsopported OS case properly"),
+        };
+        path_buf.push("authtoken.secret");
+        let auth_token = read_to_string(path_buf).unwrap();
         let mut headers = header::HeaderMap::new();
         let value = header::HeaderValue::from_str(&auth_token)
             .expect("Unacceptable authorization token");
@@ -229,7 +219,7 @@ impl<'a> CentralCliHandler<'a> {
             }
             Some(("network", subs)) => self.handle_network(subs).await?,
             Some(("member", subs)) => self.handle_member(subs).await?,
-            _ => {}
+            _ => todo!("Handle exceptional cases properly"),
         }
         Ok(())
     }
@@ -244,7 +234,7 @@ impl<'a> CentralCliHandler<'a> {
             Some(("update", subs)) => self.network_update(subs).await?,
             Some(("delete", subs)) => self.network_delete(subs).await?,
             Some(("list", _)) => self.network_list().await?,
-            _ => {}
+            _ => todo!("Handle exceptional cases properly"),
         }
         Ok(())
     }
@@ -490,7 +480,7 @@ impl<'a> OneCliHandler<'a> {
                 dbg!(status);
             }
             Some(("network", subs)) => self.handle_network(subs).await,
-            _ => {}
+            _ => todo!("Handle exceptional cases properly"),
         }
     }
 
@@ -500,7 +490,7 @@ impl<'a> OneCliHandler<'a> {
             Some(("post", subs)) => self.handle_network_post(subs).await,
             Some(("leave", subs)) => self.handle_network_leave(subs).await,
             Some(("list", _)) => self.handle_network_list().await,
-            _ => {}
+            _ => todo!("Handle exceptional cases properly"),
         }
     }
 
