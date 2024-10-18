@@ -1,4 +1,4 @@
-newline_style = "unix"
+newline_style = "Unix"
 edition = "2021"
 use_field_init_shorthand = true
 use_try_shorthand = true
@@ -12,7 +12,7 @@ error_on_line_overflow = true
 format_code_in_doc_comments = true
 format_macro_bodies = true
 format_macro_matchers = true
-format_strings = true
+# format_strings = true
 imports_granularity = "Module"
 group_imports = "StdExternalCrate"
 normalize_doc_attributes = true

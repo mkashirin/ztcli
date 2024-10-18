@@ -15,7 +15,7 @@ const CENTRAL_BASE_URL: &str = "https://api.zerotier.com/api/v1";
 const ONE_BASE_URL: &str = "http://localhost:9993";
 
 /// Entry point of the CLI. Initializes clients and delegates execution.
-pub async fn run(central_client: &central::Client, one_client: &one::Client) {
+pub async fn cli(central_client: &central::Client, one_client: &one::Client) {
     let matches = command!()
         .about(
             "A mininal CLI combining ZeroTier Central and ZeroTier One \
@@ -33,7 +33,7 @@ pub async fn run(central_client: &central::Client, one_client: &one::Client) {
             let handler = OneCliHandler::new(one_client);
             handler.handle(subs).await;
         }
-        _ => todo!("Handle exceptional cases properly"),
+        _ => {}
     }
 }
 
@@ -89,9 +89,9 @@ impl FromEnv<one::Client> for one::Client {
         let rqwst_client = reqwest::Client::builder()
             .default_headers(headers)
             .build()
-            .map_err(|_| {
-                "No ZeroTierOne authentication token has been provided"
-            })
+            .map_err(
+                |_| "No ZeroTierOne authentication token has been provided",
+            )
             .unwrap();
 
         one::Client::new_with_client(ONE_BASE_URL, rqwst_client)
@@ -104,29 +104,39 @@ impl FromEnv<one::Client> for one::Client {
 fn central_cli() -> Command {
     Command::new("central")
         .about("A minimal ZeroTier Central CLI")
+        .arg_required_else_help(true)
         .subcommand_required(true)
         .subcommands([
             Command::new("status").about("Get the client status"),
             Command::new("network")
                 .about("Interface for actions related to ZeroTier networks")
-                .subcommand_required(true)
+                .arg_required_else_help(true)
+                .args([
+                    arg!(--id <ID> "Get network by ID"),
+                    arg!(-j --"as-json" "Print the requsted network as JSON")
+                        .requires("id"),
+                ])
                 .subcommands([
-                    Command::new("create").about("Create new network").args([
-                        arg!(
-                            -n --name <NAME>
-                            "Name of the network"
-                        )
-                        .required(true),
-                        arg!(
-                            -p --private
-                            "Network access policy (default is public)"
-                        )
-                        .action(ArgAction::SetTrue),
-                    ]),
+                    Command::new("create")
+                        .about("Create new network")
+                        .arg_required_else_help(true)
+                        .args([
+                            arg!(
+                                -n --name <NAME>
+                                "Name of the network"
+                            )
+                            .required(true),
+                            arg!(
+                                -p --private
+                                "Network access policy (default is public)"
+                            )
+                            .action(ArgAction::SetTrue),
+                        ]),
                     Command::new("update")
                         .about("Update existing network")
+                        .arg_required_else_help(true)
                         .args([
-                            arg!(-i --id <ID> "Identifier of the network")
+                            arg!(--id <ID> "Identifier of the network")
                                 .required(true),
                             arg!(
                                 -d --data <FILE>
@@ -137,14 +147,16 @@ fn central_cli() -> Command {
                         ]),
                     Command::new("delete")
                         .about("Delete existing network by id")
+                        .arg_required_else_help(true)
                         .arg(
-                            arg!(-i --id <ID> "Identifier of the network")
+                            arg!(--id <ID> "Identifier of the network")
                                 .required(true),
                         ),
                     Command::new("list").about("Lists available networks"),
                 ]),
             Command::new("member")
                 .about("Network memeber(s) related actions")
+                .arg_required_else_help(true)
                 .subcommands([
                     Command::new("update")
                         .about("Update network member(s)")
@@ -176,8 +188,10 @@ fn central_cli() -> Command {
                             .required_unless_present("data")
                             .required_unless_present("member-id"),
                         ]),
-                    Command::new("delete").about("Delete netword member").args(
-                        [
+                    Command::new("delete")
+                        .about("Delete netword member")
+                        .arg_required_else_help(true)
+                        .args([
                             arg!(
                                 -n --"network-id" <ID>
                                 "Identifier of the network"
@@ -188,14 +202,14 @@ fn central_cli() -> Command {
                                 "Identifier of the network member to delete"
                             )
                             .requires("network-id"),
-                        ],
-                    ),
-                    Command::new("list").about("List the network members").arg(
-                        arg!(
+                        ]),
+                    Command::new("list")
+                        .about("List the network members")
+                        .arg_required_else_help(true)
+                        .arg(arg!(
                             -n --"network-id" <ID>
                             "ID of the network to list members of it"
-                        ),
-                    ),
+                        )),
                 ]),
         ])
 }
@@ -204,6 +218,7 @@ fn central_cli() -> Command {
 struct CentralCliHandler<'a> {
     client: &'a central::Client,
 }
+
 impl<'a> CentralCliHandler<'a> {
     /// Creates a new CentralCliHandler.
     fn new(client: &'a central::Client) -> CentralCliHandler<'a> {
@@ -219,7 +234,7 @@ impl<'a> CentralCliHandler<'a> {
             }
             Some(("network", subs)) => self.handle_network(subs).await?,
             Some(("member", subs)) => self.handle_member(subs).await?,
-            _ => todo!("Handle exceptional cases properly"),
+            _ => {}
         }
         Ok(())
     }
@@ -234,7 +249,28 @@ impl<'a> CentralCliHandler<'a> {
             Some(("update", subs)) => self.network_update(subs).await?,
             Some(("delete", subs)) => self.network_delete(subs).await?,
             Some(("list", _)) => self.network_list().await?,
-            _ => todo!("Handle exceptional cases properly"),
+            _ => self.network_long(matches).await?,
+        }
+        Ok(())
+    }
+
+    /// Prints network full JSON by ID.
+    async fn network_long(
+        &self,
+        matches: &ArgMatches,
+    ) -> Result<(), central::Error> {
+        let network_id = matches.get_one::<String>("id").unwrap();
+        let as_json = matches.get_flag("as-json");
+        let network = self
+            .client
+            .get_network_by_id(network_id)
+            .await?
+            .into_inner();
+        if as_json {
+            let network_json = serde_json::to_string_pretty(&network).unwrap();
+            println!("{network_json}");
+        } else {
+            println!("Network (ID: {network_id})\n{network}");
         }
         Ok(())
     }
@@ -314,8 +350,7 @@ impl<'a> CentralCliHandler<'a> {
             }
             Some(("delete", subs)) => self.member_delete(subs).await?,
             Some(("list", subs)) => {
-                let list = self.member_list(subs).await?;
-                dbg!(list);
+                let _ = self.member_list(subs, true).await?;
             }
             _ => {}
         }
@@ -357,7 +392,7 @@ impl<'a> CentralCliHandler<'a> {
         matches: &ArgMatches,
         network_id: &str,
     ) -> Result<(), central::Error> {
-        let members = self.member_list(matches).await?;
+        let members = self.member_list(matches, false).await?;
         println!("Authorized member(s) (short):");
         for member in members {
             let mut new_member = member.clone();
@@ -393,6 +428,7 @@ impl<'a> CentralCliHandler<'a> {
     async fn member_list(
         &self,
         matches: &ArgMatches,
+        display: bool,
     ) -> Result<Vec<Member>, central::Error<()>> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
@@ -401,6 +437,13 @@ impl<'a> CentralCliHandler<'a> {
             .get_network_member_list(&network_id)
             .await?
             .into_inner();
+
+        if display {
+            println!("Network (ID: {network_id}) member list (short):");
+            for (n, memb) in members.to_vec().iter().enumerate() {
+                println!("\n{}. {}", n + 1, memb);
+            }
+        }
         Ok(members)
     }
 }
@@ -411,29 +454,31 @@ impl<'a> CentralCliHandler<'a> {
 fn one_cli() -> Command {
     Command::new("one")
         .about("A minimal ZeroTierOne Service CLI")
+        .arg_required_else_help(true)
         .subcommand_required(true)
         .subcommand(Command::new("status").about("Gets the node status"))
         .subcommand(
             Command::new("network")
                 .about("Interface for actions related to networking")
+                .arg_required_else_help(true)
                 .subcommands([
                     Command::new("post")
                         .about(
                             "Join or update the network with the given ID. \
                              All flags default to true",
                         )
+                        .arg_required_else_help(true)
                         .args([
                             arg!(
-                                -i --id <ID>
-                                "Network ID to send POST request to"
+                                --id <ID> "Network ID to send POST request to"
                             ),
                             arg!(
-                                -d --"allow-dns"
+                                --"allow-dns"
                                 "Whether DNS addresses would be allowed"
                             )
                             .action(ArgAction::SetFalse),
                             arg!(
-                                -D --"allow-default"
+                                -d --"allow-default"
                                 "Whether default addresses would be allowed"
                             )
                             .action(ArgAction::SetFalse),
@@ -450,8 +495,9 @@ fn one_cli() -> Command {
                         ]),
                     Command::new("leave")
                         .about("Leave the network with the given ID")
+                        .arg_required_else_help(true)
                         .arg(
-                            arg!(-i --id <ID> "ID of the network to be left")
+                            arg!(--id <ID> "ID of the network to leave")
                                 .required(true),
                         ),
                     Command::new("list").about(
@@ -465,6 +511,7 @@ fn one_cli() -> Command {
 struct OneCliHandler<'a> {
     client: &'a one::Client,
 }
+
 impl<'a> OneCliHandler<'a> {
     /// Creates a new OneCliHandler.
     fn new(client: &'a one::Client) -> OneCliHandler<'a> {
@@ -475,12 +522,16 @@ impl<'a> OneCliHandler<'a> {
     async fn handle(&self, matches: &ArgMatches) {
         match matches.subcommand() {
             Some(("status", _)) => {
-                let status =
-                    self.client.node_status_read_status().await.unwrap();
-                dbg!(status);
+                let status = self
+                    .client
+                    .node_status_read_status()
+                    .await
+                    .unwrap()
+                    .into_inner();
+                println!("{status}");
             }
             Some(("network", subs)) => self.handle_network(subs).await,
-            _ => todo!("Handle exceptional cases properly"),
+            _ => {}
         }
     }
 
@@ -490,7 +541,7 @@ impl<'a> OneCliHandler<'a> {
             Some(("post", subs)) => self.handle_network_post(subs).await,
             Some(("leave", subs)) => self.handle_network_leave(subs).await,
             Some(("list", _)) => self.handle_network_list().await,
-            _ => todo!("Handle exceptional cases properly"),
+            _ => {}
         }
     }
 

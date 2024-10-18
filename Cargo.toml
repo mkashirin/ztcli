@@ -11,5 +11,5 @@ reqwest = "0.12.8"
 serde_json = "1.0.128"
 tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
 
-zerotier_central = { path = "src/ztapi/zerotier_central" }
-zerotier_one = { path = "src/ztapi/zerotier_one" }
+zerotier_central = { path = "ztapi/zerotier_central" }
+zerotier_one = { path = "ztapi/zerotier_one" }
