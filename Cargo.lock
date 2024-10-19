@@ -1485,7 +1485,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ztrs"
+name = "ztcli"
 version = "0.1.0"
 dependencies = [
  "clap",
