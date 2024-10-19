@@ -4856,6 +4856,20 @@ pub mod types {
         }
     }
 
+    impl ::std::fmt::Display for Peer {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let address = self.address.to_string();
+            let path = &self.paths[0].address;
+            let role = self.role.to_string();
+            write!(
+                f,
+                "Peer (address: {address}) (short):
+  * Path: {path}
+  * Role: {role}"
+            )
+        }
+    }
+
     /// PeerLatency
     ///
     /// <details><summary>JSON schema</summary>

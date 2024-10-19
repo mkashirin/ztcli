@@ -4,6 +4,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use anyhow::Result;
 use central::types::{ApiToken, Member, Network};
 use clap::{arg, command, value_parser, ArgAction, ArgMatches, Command};
 use one::types::{JoinedNetworkRequest, ZtNetworkId};
@@ -15,7 +16,7 @@ const CENTRAL_BASE_URL: &str = "https://api.zerotier.com/api/v1";
 const ONE_BASE_URL: &str = "http://localhost:9993";
 
 /// Entry point of the CLI. Initializes clients and delegates execution.
-pub async fn cli(central_client: &central::Client, one_client: &one::Client) {
+pub async fn cli() -> Result<()> {
     let matches = command!()
         .about(
             "A mininal CLI combining ZeroTier Central and ZeroTier One \
@@ -26,15 +27,18 @@ pub async fn cli(central_client: &central::Client, one_client: &one::Client) {
         .get_matches();
     match matches.subcommand() {
         Some(("central", subs)) => {
-            let handler = CentralCliHandler::new(central_client);
+            let central_client = zerotier_central::Client::from_env();
+            let handler = CentralCliHandler::new(&central_client);
             handler.handle(subs).await.unwrap();
         }
         Some(("one", subs)) => {
-            let handler = OneCliHandler::new(one_client);
-            handler.handle(subs).await;
+            let one_client = zerotier_one::Client::from_env();
+            let handler = OneCliHandler::new(&one_client);
+            handler.handle(subs).await.unwrap();
         }
         _ => {}
     }
+    Ok(())
 }
 
 /// Trait for creating instances from environment variables.
@@ -177,16 +181,29 @@ fn central_cli() -> Command {
                             )
                             .requires("network-id")
                             .requires("member-id")
-                            .required_unless_present("authorize-all")
+                            .required_unless_present_any([
+                                "authorize-all",
+                                "name",
+                            ])
                             .value_parser(value_parser!(std::path::PathBuf)),
                             arg!(
-                                -A --"authorize-all"
+                                --"authorize-all"
                                 "Authorize all members of the network"
                             )
                             .action(ArgAction::SetTrue)
                             .requires("network-id")
-                            .required_unless_present("data")
-                            .required_unless_present("member-id"),
+                            .required_unless_present_any([
+                                "data",
+                                "name",
+                                "member-id",
+                            ]),
+                            arg!(--name <NAME> "Give network member a name")
+                                .requires("network-id")
+                                .requires("member-id")
+                                .required_unless_present_any([
+                                    "authorize-all",
+                                    "data",
+                                ]),
                         ]),
                     Command::new("delete")
                         .about("Delete netword member")
@@ -226,7 +243,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Handles subcommands for the ZeroTier Central CLI.
-    async fn handle(&self, matches: &ArgMatches) -> Result<(), central::Error> {
+    async fn handle(&self, matches: &ArgMatches) -> Result<()> {
         match matches.subcommand() {
             Some(("status", _)) => {
                 let status = self.client.get_status().await?.into_inner();
@@ -240,10 +257,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Handles network-related subcommands.
-    async fn handle_network(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error> {
+    async fn handle_network(&self, matches: &ArgMatches) -> Result<()> {
         match matches.subcommand() {
             Some(("create", subs)) => self.network_create(subs).await?,
             Some(("update", subs)) => self.network_update(subs).await?,
@@ -255,10 +269,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Prints network full JSON by ID.
-    async fn network_long(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error> {
+    async fn network_long(&self, matches: &ArgMatches) -> Result<()> {
         let network_id = matches.get_one::<String>("id").unwrap();
         let as_json = matches.get_flag("as-json");
         let network = self
@@ -276,10 +287,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Creates a new network.
-    async fn network_create(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error> {
+    async fn network_create(&self, matches: &ArgMatches) -> Result<()> {
         let mut body = Map::new();
         let name = Value::String(
             matches.get_one::<String>("name").unwrap().to_owned(),
@@ -299,10 +307,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Updates an existing network.
-    async fn network_update(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error> {
+    async fn network_update(&self, matches: &ArgMatches) -> Result<()> {
         let network_id = matches.get_one::<String>("id").unwrap().to_owned();
         let path = matches.get_one::<PathBuf>("data").unwrap().to_owned();
         let file = File::open(path).unwrap();
@@ -319,10 +324,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Deletes an existing network.
-    async fn network_delete(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error> {
+    async fn network_delete(&self, matches: &ArgMatches) -> Result<()> {
         let network_id = matches.get_one::<String>("id").unwrap();
         self.client.delete_network(network_id).await?;
         println!("Network (ID: {}) deleted", network_id);
@@ -330,7 +332,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Lists available networks.
-    async fn network_list(&self) -> Result<(), central::Error> {
+    async fn network_list(&self) -> Result<()> {
         let networks = self.client.get_network_list().await?;
         println!("List of the networks available (short):");
         for (n, net) in networks.to_vec().iter().enumerate() {
@@ -340,10 +342,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Handles member-related subcommands.
-    async fn handle_member(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error> {
+    async fn handle_member(&self, matches: &ArgMatches) -> Result<()> {
         match matches.subcommand() {
             Some(("update", subs)) => {
                 self.member_update(subs).await?;
@@ -358,10 +357,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Updates network members.
-    async fn member_update(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error<()>> {
+    async fn member_update(&self, matches: &ArgMatches) -> Result<()> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
         if matches.get_flag("authorize-all") {
@@ -369,13 +365,27 @@ impl<'a> CentralCliHandler<'a> {
                 .await?;
             return Ok(());
         }
-
         let member_id =
             matches.get_one::<String>("member-id").unwrap().to_owned();
-        let path = matches.get_one::<PathBuf>("data").unwrap().to_owned();
-        let file = File::open(path).unwrap();
-        let reader = BufReader::new(file);
-        let member: Member = serde_json::from_reader(reader).unwrap();
+
+        let member = 'member: {
+            if let Some(name) = matches.get_one::<String>("name") {
+                let mut member: Member = self
+                    .client
+                    .get_network_member(&network_id, &member_id)
+                    .await?
+                    .into_inner();
+                member.name = Some(name.to_string());
+                break 'member member;
+            } else if let Some(path) = matches.get_one::<PathBuf>("data") {
+                let file = File::open(path).unwrap();
+                let reader = BufReader::new(file);
+                let member: Member = serde_json::from_reader(reader).unwrap();
+                break 'member member;
+            };
+            let empty_member: Member = serde_json::from_str("{}").unwrap();
+            empty_member
+        };
 
         let member_updated = self
             .client
@@ -391,7 +401,7 @@ impl<'a> CentralCliHandler<'a> {
         &self,
         matches: &ArgMatches,
         network_id: &str,
-    ) -> Result<(), central::Error> {
+    ) -> Result<()> {
         let members = self.member_list(matches, false).await?;
         println!("Authorized member(s) (short):");
         for member in members {
@@ -409,10 +419,7 @@ impl<'a> CentralCliHandler<'a> {
     }
 
     /// Deletes a network member.
-    async fn member_delete(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<(), central::Error> {
+    async fn member_delete(&self, matches: &ArgMatches) -> Result<()> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
         let member_id =
@@ -429,7 +436,7 @@ impl<'a> CentralCliHandler<'a> {
         &self,
         matches: &ArgMatches,
         display: bool,
-    ) -> Result<Vec<Member>, central::Error<()>> {
+    ) -> Result<Vec<Member>> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
         let members = self
@@ -456,8 +463,10 @@ fn one_cli() -> Command {
         .about("A minimal ZeroTierOne Service CLI")
         .arg_required_else_help(true)
         .subcommand_required(true)
-        .subcommand(Command::new("status").about("Gets the node status"))
-        .subcommand(
+        .subcommands([
+            Command::new("status").about("Gets the node status"),
+            Command::new("peers")
+                .about("List all the peers your node knows about"),
             Command::new("network")
                 .about("Interface for actions related to networking")
                 .arg_required_else_help(true)
@@ -505,7 +514,7 @@ fn one_cli() -> Command {
                         "List all the networks that this node is joined to",
                     ),
                 ]),
-        )
+        ])
 }
 
 /// Handler for ZeroTier One CLI commands.
@@ -520,34 +529,46 @@ impl<'a> OneCliHandler<'a> {
     }
 
     /// Handles subcommands for the ZeroTier One CLI.
-    async fn handle(&self, matches: &ArgMatches) {
+    async fn handle(&self, matches: &ArgMatches) -> Result<()> {
         match matches.subcommand() {
-            Some(("status", _)) => {
-                let status = self
-                    .client
-                    .node_status_read_status()
-                    .await
-                    .unwrap()
-                    .into_inner();
-                println!("{status}");
-            }
-            Some(("network", subs)) => self.handle_network(subs).await,
+            Some(("status", _)) => self.handle_status().await?,
+            Some(("peers", _)) => self.handle_peers().await?,
+            Some(("network", subs)) => self.handle_network(subs).await?,
             _ => {}
         }
+        Ok(())
+    }
+
+    /// Shows node status.
+    async fn handle_status(&self) -> Result<()> {
+        let status = self.client.node_status_read_status().await?.into_inner();
+        println!("{status}");
+        Ok(())
+    }
+
+    /// Lists all the available peers.
+    async fn handle_peers(&self) -> Result<()> {
+        let peers = self.client.node_peer_read_networks().await?.into_inner();
+        println!("List of the peers available (short):");
+        for (n, peer) in peers.iter().enumerate() {
+            println!("\n{}. {}", n + 1, peer);
+        }
+        Ok(())
     }
 
     /// Handles network-related subcommands.
-    async fn handle_network(&self, matches: &ArgMatches) {
+    async fn handle_network(&self, matches: &ArgMatches) -> Result<()> {
         match matches.subcommand() {
-            Some(("post", subs)) => self.handle_network_post(subs).await,
-            Some(("leave", subs)) => self.handle_network_leave(subs).await,
-            Some(("list", _)) => self.handle_network_list().await,
+            Some(("post", subs)) => self.network_post(subs).await?,
+            Some(("leave", subs)) => self.network_leave(subs).await?,
+            Some(("list", _)) => self.network_list().await?,
             _ => {}
         }
+        Ok(())
     }
 
     /// Joins or updates a network.
-    async fn handle_network_post(&self, matches: &ArgMatches) {
+    async fn network_post(&self, matches: &ArgMatches) -> Result<()> {
         let id = matches.get_one::<String>("id").unwrap().to_owned();
         let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
 
@@ -565,14 +586,14 @@ impl<'a> OneCliHandler<'a> {
         let network = self
             .client
             .network_membership_set_network(&network_id, &body)
-            .await
-            .unwrap()
+            .await?
             .into_inner();
         println!("{network}");
+        Ok(())
     }
 
     /// Leaves a network.
-    async fn handle_network_leave(&self, matches: &ArgMatches) {
+    async fn network_leave(&self, matches: &ArgMatches) -> Result<()> {
         let id = matches.get_one::<String>("id").unwrap().to_owned();
         let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
 
@@ -584,18 +605,20 @@ impl<'a> OneCliHandler<'a> {
             Ok(_) => println!("Left network (ID: {id})"),
             Err(e) => eprintln!("Failed to leave network (ID: {id}): {e}"),
         };
+        Ok(())
     }
 
     /// Lists joined networks.
-    async fn handle_network_list(&self) {
+    async fn network_list(&self) -> Result<()> {
         let networks = self
             .client
             .network_membership_read_networks()
-            .await
-            .unwrap();
+            .await?
+            .into_inner();
         println!("List of the networks available (short):");
-        for (n, net) in networks.to_vec().iter().enumerate() {
+        for (n, net) in networks.iter().enumerate() {
             println!("\n{}. {}", n + 1, net);
         }
+        Ok(())
     }
 }

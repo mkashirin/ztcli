@@ -711,8 +711,6 @@ pub mod types {
             };
             let node_id = self.node_id.show_or(::serde_json::Value::Null);
             let hidden = self.hidden.show_or(::serde_json::Value::Null);
-            let physical_address =
-                self.physical_address.show_or(::serde_json::Value::Null);
 
             let config = self.config.as_ref().unwrap();
             let authorized =
@@ -731,8 +729,7 @@ pub mod types {
                 "Member {name} (ID: {node_id})
   * Authorized: {authorized}
   * Hidden: {hidden}
-  * IP assignments: [{ip_assignments}]
-  * Physical address: {physical_address}"
+  * IP assignments: [{ip_assignments}]"
             )
         }
     }
