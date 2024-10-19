@@ -471,7 +471,8 @@ fn one_cli() -> Command {
                         .args([
                             arg!(
                                 --id <ID> "Network ID to send POST request to"
-                            ),
+                            )
+                            .required(true),
                             arg!(
                                 --"allow-dns"
                                 "Whether DNS addresses would be allowed"
