@@ -30,12 +30,12 @@ Then create a network via ZeroTier Central API as follows:
 This would print out the brand new network short description with the ID. Use
 this ID to connect to the network on your machines like this:
 ```powershell
-.\ztcli.exe one network post --id="<ID>"
+.\ztcli.exe one network post --id="<ID of Example Net>"
 ```
 After that you need to authorize all the members on the network as in the line
 below:
 ```powershell
-.\ztcli.exe central network update --authorize-all --id="<ID>"
+.\ztcli.exe central network update --authorize-all --id="<ID of Example Net>"
 ```
 You can now list the peers available for communication like so:
 ```powershell
@@ -44,7 +44,7 @@ You can now list the peers available for communication like so:
 It would list all the nodes your node knows about and their addresses. Now check
 the peer resolvability as in the following script:
 ```powershell
-ping <IP>
+ping <IP of any peer>
 ```
 
 If the ping went well, congratulations! You now have a VLAN, to play with your
