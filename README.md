@@ -21,7 +21,7 @@ Open the directory with the downloaded binary via terminal.
 Generate an API token for your ZeroTier Central account and bind the evironment
 varibale named `ZTC_API_TOKEN` to it like so:
 ```powershell
-Env:ZTC_API_TOKEN="<TOKEN>"
+Env:ZTC_API_TOKEN="<ZeroTier Central API token>"
 ```
 Then create a network via ZeroTier Central API as follows:
 ```powershell
