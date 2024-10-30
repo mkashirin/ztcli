@@ -726,10 +726,8 @@ pub mod types {
 
             write!(
                 f,
-                "Member {name} (ID: {node_id})
-  * Authorized: {authorized}
-  * Hidden: {hidden}
-  * IP assignments: [{ip_assignments}]"
+                "Member {name} (ID: {node_id})\n * Authorized: {authorized} * \
+                 Hidden: {hidden}\n * IP assignments: [{ip_assignments}]",
             )
         }
     }
@@ -1342,11 +1340,10 @@ pub mod types {
 
             write!(
                 f,
-                "Network {name} (ID: {id})
-  * Private: {private}
-  * Total member count: {total_member_count}
-  * Online member count: {online_member_count}
-  * Authorized member count: {authorized_member_count}"
+                "Network {name} (ID: {id})\n * Private: {private}\n * Total \
+                 member count: {total_member_count}\n * Online member count: \
+                 {online_member_count}\n * Authorized member count: \
+                 {authorized_member_count}",
             )
         }
     }
@@ -2440,9 +2437,8 @@ pub mod types {
 
             write!(
                 f,
-                "User {name} (ID: {id}) <{email}>
-  * Client API version: {api_version}
-  * Client uptime: {uptime}"
+                "User {name} (ID: {id}) <{email}>\n * Client API version: \
+                 {api_version}\n * Client uptime: {uptime}",
             )
         }
     }

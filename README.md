@@ -15,36 +15,38 @@ an API token for the ZeroTier Central. You also need to install the agent
 
 ## VLAN Setup
 
-First, download the [ZTCLI binary](https://github.com/mkashirin/ztcli/releases/download/0.1.0/ztcli.exe).
+First, download the [ZTCLI binary](https://github.com/mkashirin/ztcli/releases/download/0.1.0/).
 Open the directory with the downloaded binary via terminal.
 
 Generate an API token for your ZeroTier Central account and bind the evironment
 varibale named `ZTC_API_TOKEN` to it like so:
 ```powershell
-Env:ZTC_API_TOKEN="<ZeroTier Central API token>"
+$Env:ZTC_API_TOKEN="<central-api-token>"
 ```
 Then create a network via ZeroTier Central API as follows:
 ```powershell
-.\ztcli.exe central network create --private --name="Example Net"
+.\ztcli.exe central network create --private --name="<nwname>"
 ```
 This would print out the brand new network short description with the ID. Use
 this ID to connect to the network on your machines like this:
 ```powershell
-.\ztcli.exe one network post --id="<ID of Example Net>"
+.\ztcli.exe one network post --id="<nwid>"
 ```
 After that you need to authorize all the members on the network as in the line
 below:
 ```powershell
-.\ztcli.exe central network update --authorize-all --id="<ID of Example Net>"
+.\ztcli.exe central network update --authorize-all --id="<nwid>"
 ```
-You can now list the peers available for communication like so:
+You can now list the networks joined for communication:
 ```powershell
-.\ztcli.exe one peers
+.\ztcli.exe one network list
 ```
-It would list all the nodes your node knows about and their addresses. Now check
-the peer resolvability as in the following script:
+It would list all the networks your node has joined to about and their addresses.
+But more importantly it would list addresses assigned to your node, that other nodes
+can resolve it through. Now check the peer resolvability as in the following script,
+by running it on another node on your network:
 ```powershell
-ping <IP of any peer>
+ping "<your-assigned-address>"
 ```
 
 If the ping went well, congratulations! You now have a VLAN, to play with your

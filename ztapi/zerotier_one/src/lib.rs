@@ -7,6 +7,7 @@ use reqwest::header::{HeaderMap, HeaderValue};
 /// Types used as operation parameters and responses.
 #[allow(clippy::all)]
 pub mod types {
+    use std::ops::Deref;
 
     /// Error types.
     pub mod error {
@@ -2923,10 +2924,11 @@ pub mod types {
             let name = self.name.clone();
             let id: String = self.id.clone().into();
             let status: String = self.status.to_string();
+            let assigned_ips = self.assigned_addresses.to_vec();
             write!(
                 f,
-                "Network {name} (ID: {id})
-  * Status: {status}"
+                "Network {name} (ID: {id})\n * Status: {status}\n * Assigned \
+                 IPs: {assigned_ips:?}",
             )
         }
     }
@@ -4094,11 +4096,9 @@ pub mod types {
 
             write!(
                 f,
-                "Node (ID: {address}) status (short):
-  * Online: {online}
-  * Version: {version}
-  * Primary port: {primary_port}
-  * Secondary port: {secondary_port}"
+                "Node (ID: {address}) status (short):\n * Online: {online}\n \
+                 * Version: {version}\n * Primary port: {primary_port}\n * \
+                 Secondary port: {secondary_port}",
             )
         }
     }
@@ -4859,13 +4859,18 @@ pub mod types {
     impl ::std::fmt::Display for Peer {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             let address = self.address.to_string();
-            let path = &self.paths[0].address;
+            let path = 'block: {
+                if self.paths.len() > 0 {
+                    break 'block self.paths[0].address.deref().to_owned();
+                } else {
+                    break 'block "Unreachable".to_string();
+                };
+            };
             let role = self.role.to_string();
             write!(
                 f,
-                "Peer (address: {address}) (short):
-  * Path: {path}
-  * Role: {role}"
+                "Peer (address: {address}) (short):\n * Path: {path}\n * \
+                 Role: {role}",
             )
         }
     }

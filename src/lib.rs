@@ -93,9 +93,9 @@ impl FromEnv<one::Client> for one::Client {
         let rqwst_client = reqwest::Client::builder()
             .default_headers(headers)
             .build()
-            .map_err(
-                |_| "No ZeroTierOne authentication token has been provided",
-            )
+            .map_err(|_| {
+                "No ZeroTierOne authentication token has been provided"
+            })
             .unwrap();
 
         one::Client::new_with_client(ONE_BASE_URL, rqwst_client)
