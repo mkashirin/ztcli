@@ -4,10 +4,14 @@ use progenitor_client::{encode_path, RequestBuilderExt};
 pub use progenitor_client::{ByteStream, Error, ResponseValue};
 #[allow(unused_imports)]
 use reqwest::header::{HeaderMap, HeaderValue};
+#[allow(unused_imports)]
+use show_option::prelude::*;
 /// Types used as operation parameters and responses.
 #[allow(clippy::all)]
 pub mod types {
     use std::ops::Deref;
+
+    use show_option::ShowOption;
 
     /// Error types.
     pub mod error {
@@ -248,6 +252,26 @@ pub mod types {
     impl From<&ControllerNetwork> for ControllerNetwork {
         fn from(value: &ControllerNetwork) -> Self {
             value.clone()
+        }
+    }
+
+    impl ::std::fmt::Display for ControllerNetwork {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let id = self.id.to_string();
+            let nwid = self.nwid.to_string();
+            let name = 'block: {
+                if self.name.len() > 0 {
+                    break 'block self.name.as_str()   
+                } else {
+                    break 'block &"unnamed"
+                }
+            };
+            let private = self.private;
+
+            write!(
+                f,
+                "Network {name} (ID: {id})\n * Private: {private}\n * NWID: {nwid}"
+            )
         }
     }
 
@@ -697,6 +721,25 @@ pub mod types {
         }
     }
 
+    impl ::std::fmt::Display for ControllerNetworkMember {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+            let address = self.address.to_string();
+            let authorized = self.authorized.show_or(::serde_json::Value::Null);
+            let id = self.id.to_string();
+            let identity = self.identity.show_or(::serde_json::Value::Null);
+            let ip_assignments = &self.ip_assignments;
+            let name = self.name.show_or("unnamed");
+            let nwid = self.nwid.to_string();
+
+            write!(
+                f,
+                "Memeber {name} (ID: {id}) (short):\n * Address: {address}\n \
+                * Authorized: {authorized}\n * Identity: {identity}\n * IP \
+                assignments: {ip_assignments:?}\n * Network ID: {nwid}"
+            )
+        }
+    }
+
     /// ControllerNetworkMemberIpAssignmentsItem
     ///
     /// <details><summary>JSON schema</summary>
@@ -727,6 +770,15 @@ pub mod types {
     {
         fn from(value: &ControllerNetworkMemberIpAssignmentsItem) -> Self {
             value.clone()
+        }
+    }
+
+    impl ::std::fmt::Display for ControllerNetworkMemberIpAssignmentsItem {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+            let subtype_0 = self.subtype_0.show_or(::serde_json::Value::Null);
+            let subtype_1 = self.subtype_1.show_or(::serde_json::Value::Null);
+            
+            write!(f, "v4: {subtype_0}, v6: {subtype_1}")
         }
     }
 
@@ -2387,6 +2439,13 @@ pub mod types {
         }
     }
 
+    impl ::std::fmt::Display for ControllerStatus {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+            let api_version = self.api_version.to_string().to_owned();
+            write!(f, "* API version: {api_version}")
+        }
+    }
+
     /// Domain
     ///
     /// <details><summary>JSON schema</summary>
@@ -2927,8 +2986,8 @@ pub mod types {
             let assigned_ips = self.assigned_addresses.to_vec();
             write!(
                 f,
-                "Network {name} (ID: {id})\n * Status: {status}\n * Assigned \
-                 IPs: {assigned_ips:?}",
+                "Network {name} (ID: {id})\n * Status: {status}\n * Assigned IPs: \
+                {assigned_ips:?}",
             )
         }
     }
@@ -4869,8 +4928,8 @@ pub mod types {
             let role = self.role.to_string();
             write!(
                 f,
-                "Peer (address: {address}) (short):\n * Path: {path}\n * \
-                 Role: {role}",
+                "Peer (address: {address}) (short):\n * Path: {path}\n * Role: \
+                {role}",
             )
         }
     }
