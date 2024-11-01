@@ -10,15 +10,20 @@ use anyhow::Result;
 use central::types::{ApiToken, Member, Network};
 use clap::{command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use one::types::{
-    ControllerNetworkRequest, ControllerNetworkRequestDns,
+    JoinedNetworkRequest,
+    ZtNetworkId,
+    ControllerNetworkRequest,
+    ControllerNetworkRequestDns,
     ControllerNetworkRequestIpAssignmentPoolsItem as IpAssignmentPool,
-    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd as IpAssignmentPoolRangeEnd,
-    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart as IpAssignmentPoolRangeStart,
+    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart
+        as IpAssignmentPoolRangeStart,
+    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd
+        as IpAssignmentPoolRangeEnd,
     ControllerNetworkRequestRoutesItem as Route,
     ControllerNetworkRequestRoutesItemTarget as RouteTarget,
     ControllerNetworkRequestV4AssignMode as V4AssignMode,
-    ControllerNetworkRequestV6AssignMode as V6AssignMode, EmptyArrayItem,
-    JoinedNetworkRequest, ZtNetworkId,
+    ControllerNetworkRequestV6AssignMode as V6AssignMode,
+    EmptyArrayItem,
 };
 use reqwest::header;
 use serde_json::{Map, Value};
@@ -586,13 +591,11 @@ fn one_cli() -> Command {
                     Command::new("status").about("Gets the controller status"),
                     Command::new("network")
                         .about("Controller networking manipulations")
-                        .arg_required_else_help(true)
                         .args([
                             Arg::new("id")
                                 .long("id")
                                 .help("Identifier of the network")
-                                .value_name("NWID")
-                                .required(true),
+                                .value_name("NWID"),
                             Arg::new("as-json")
                                 .short('j')
                                 .long("as-json")
@@ -642,9 +645,8 @@ fn one_cli() -> Command {
                                 .about("List the network members")
                                 .arg_required_else_help(true)
                                 .arg(
-                                    Arg::new("network-id")
-                                        .short('n')
-                                        .long("network-id")
+                                    Arg::new("id")
+                                        .long("id")
                                         .help(
                                             "ID of the network to list \
                                              members of it",
@@ -773,10 +775,8 @@ impl<'a> OneCliHandler<'a> {
                     .into_inner();
                 println!("{status}");
             }
-            Some(("network", subs)) => {
-                self.handle_controller_network(subs).await?
-            }
-            Some(("member-list", subs)) => self.member_list(subs).await?,
+            Some(("network", subs)) => self.handle_controller_network(subs).await?,
+            Some(("member", subs)) => self.handle_controller_member(subs).await?,
             _ => {}
         }
         Ok(())
@@ -788,9 +788,7 @@ impl<'a> OneCliHandler<'a> {
     ) -> Result<()> {
         match matches.subcommand() {
             Some(("post", subs)) => self.controller_network_post(subs).await?,
-            Some(("delete", subs)) => {
-                self.controller_network_delete(subs).await?
-            }
+            Some(("delete", subs)) => self.controller_network_delete(subs).await?,
             Some(("list", _)) => self.controller_networks_list().await?,
             _ => self.controller_network_long(matches).await?,
         }
@@ -818,10 +816,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
-    async fn controller_network_post(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<()> {
+    async fn controller_network_post(&self, matches: &ArgMatches) -> Result<()> {
         let name = matches.get_one::<String>("name").unwrap().to_owned();
         let body = self.default_controller_network_request(name).await;
         let network_id = self
@@ -841,46 +836,45 @@ impl<'a> OneCliHandler<'a> {
     }
 
     async fn default_controller_network_request(
-        &self,
-        name: String,
+        &self, name: String
     ) -> ControllerNetworkRequest {
         let dns = Some(ControllerNetworkRequestDns::EmptyArrayItem(
-            EmptyArrayItem(vec![serde_json::Value::Null]),
+            EmptyArrayItem(vec![serde_json::Value::Null])
         ));
         let enable_broadcast = Some(true);
 
-        let ip_assignment_pools = vec![IpAssignmentPool {
-            ip_range_start: IpAssignmentPoolRangeStart {
+        let ip_assignment_pools = vec![IpAssignmentPool{
+            ip_range_start: IpAssignmentPoolRangeStart{
                 subtype_0: Some(IPv4::from(Ipv4Addr::new(192, 168, 192, 0))),
                 subtype_1: None,
             },
-            ip_range_end: IpAssignmentPoolRangeEnd {
+            ip_range_end: IpAssignmentPoolRangeEnd{
                 subtype_0: Some(IPv4::from(Ipv4Addr::new(192, 168, 192, 254))),
                 subtype_1: None,
             },
         }];
 
-        let mtu = Some(one::types::Mtu::from(2800));
+        let mtu = Some(one::types::Mtu::from(2800));        
         let multicast_limit = Some(one::types::USafeint::from(0));
         let name = Some(name);
         let private = Some(true);
 
-        let routes = vec![Route {
-            target: RouteTarget {
+        let routes = vec![Route{
+            target: RouteTarget{
                 subtype_0: Some(IPv4::from(Ipv4Addr::new(192, 168, 192, 0))),
                 subtype_1: None,
             },
             via: None,
         }];
 
-        let v4_assign_mode = Some(V4AssignMode { zt: Some(true) });
-        let v6_assign_mode = Some(V6AssignMode {
+        let v4_assign_mode = Some(V4AssignMode{zt: Some(true)});
+        let v6_assign_mode = Some(V6AssignMode{
             _6plane: Some(false),
             rfc4193: Some(false),
-            zt: Some(true),
+            zt: Some(true)
         });
-
-        ControllerNetworkRequest {
+        
+        ControllerNetworkRequest{
             dns,
             enable_broadcast,
             ip_assignment_pools,
@@ -894,10 +888,7 @@ impl<'a> OneCliHandler<'a> {
         }
     }
 
-    async fn controller_network_delete(
-        &self,
-        matches: &ArgMatches,
-    ) -> Result<()> {
+    async fn controller_network_delete(&self, matches: &ArgMatches) -> Result<()> {
         let id = matches.get_one::<String>("id").unwrap().to_owned();
         let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
         let controller_network = self
@@ -917,10 +908,19 @@ impl<'a> OneCliHandler<'a> {
             .into_inner()
             .deref()
             .to_owned();
+
         println!("List of the networks hosted by this controller (IDs):");
         for (n, net) in networks.iter().enumerate() {
             let net = net.to_string();
             println!("\n{}. {}", n + 1, net);
+        }
+        Ok(())
+    }
+
+    async fn handle_controller_member(&self, matches: &ArgMatches) -> Result<()> {
+        match matches.subcommand() {
+            Some(("list", subs)) => self.member_list(subs).await?,
+            _ => {},
         }
         Ok(())
     }

@@ -704,10 +704,13 @@ pub mod types {
 
     impl ::std::fmt::Display for Member {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let mut name =
-                self.name.show_or(::serde_json::Value::Null).to_string();
-            if name.to_string() == "".to_string() {
-                name = "unnamed".to_string()
+            let name = 'block: {
+                let name_str = self.name.show_or("").to_string();
+                if name_str.len() > 0 {
+                    break 'block name_str
+                } else {
+                    break 'block "Unnamed".to_string()
+                }
             };
             let node_id = self.node_id.show_or(::serde_json::Value::Null);
             let hidden = self.hidden.show_or(::serde_json::Value::Null);
@@ -1335,7 +1338,14 @@ pub mod types {
                 .show_or(::serde_json::Value::Null);
 
             let config = self.config.as_ref().unwrap();
-            let name = config.name.show_or(::serde_json::Value::Null);
+            let name = 'block: {
+                let name_str = config.name.show_or("").to_string();
+                if name_str.len() > 0 {
+                    break 'block name_str
+                } else {
+                    break 'block "Unnamed".to_string()
+                }
+            };
             let private = config.private.show_or(::serde_json::Value::Null);
 
             write!(

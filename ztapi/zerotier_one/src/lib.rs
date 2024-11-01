@@ -674,7 +674,7 @@ pub mod types {
             default,
             skip_serializing_if = "Vec::is_empty"
         )]
-        pub ip_assignments: Vec<ControllerNetworkMemberIpAssignmentsItem>,
+        pub ip_assignments: Vec<String>,
         #[serde(rename = "lastAuthorizedCredential")]
         pub last_authorized_credential: Option<String>,
         #[serde(rename = "lastAuthorizedCredentialType")]
@@ -726,16 +726,22 @@ pub mod types {
             let address = self.address.to_string();
             let authorized = self.authorized.show_or(::serde_json::Value::Null);
             let id = self.id.to_string();
-            let identity = self.identity.show_or(::serde_json::Value::Null);
             let ip_assignments = &self.ip_assignments;
-            let name = self.name.show_or("unnamed");
+            let name = 'block: {
+                let name_str = self.name.show_or("").to_string();
+                if name_str.len() > 0 {
+                    break 'block name_str
+                } else {
+                    break 'block "Unnamed".to_string()
+                }
+            };
             let nwid = self.nwid.to_string();
 
             write!(
                 f,
                 "Memeber {name} (ID: {id}) (short):\n * Address: {address}\n \
-                * Authorized: {authorized}\n * Identity: {identity}\n * IP \
-                assignments: {ip_assignments:?}\n * Network ID: {nwid}"
+                * Authorized: {authorized}\n * IP assignments: {ip_assignments:?}\n \
+                * Network ID: {nwid}"
             )
         }
     }
@@ -758,6 +764,7 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
+    // This bullshit does not work. API responds with a `String`, not an object.
     pub struct ControllerNetworkMemberIpAssignmentsItem {
         #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
         pub subtype_0: Option<IPv4>,
