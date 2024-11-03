@@ -6,28 +6,22 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use central::types::{ApiToken, Member, Network};
 use clap::{command, value_parser, Arg, ArgAction, ArgMatches, Command};
 use one::types::{
-    JoinedNetworkRequest,
-    ZtNetworkId,
-    ControllerNetworkRequest,
-    ControllerNetworkRequestDns,
+    ControllerNetworkMember, ControllerNetworkMemberRequest,
+    ControllerNetworkRequest, ControllerNetworkRequestDns,
     ControllerNetworkRequestIpAssignmentPoolsItem as IpAssignmentPool,
-    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart
-        as IpAssignmentPoolRangeStart,
-    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd
-        as IpAssignmentPoolRangeEnd,
+    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd as IpAssignmentPoolRangeEnd,
+    ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart as IpAssignmentPoolRangeStart,
     ControllerNetworkRequestRoutesItem as Route,
-    ControllerNetworkRequestRoutesItemTarget as RouteTarget,
     ControllerNetworkRequestV4AssignMode as V4AssignMode,
-    ControllerNetworkRequestV6AssignMode as V6AssignMode,
-    EmptyArrayItem,
+    ControllerNetworkRequestV6AssignMode as V6AssignMode, EmptyArrayItem, IPv4,
+    IpSlashPort, JoinedNetworkRequest, ZtAddress, ZtNetworkId,
 };
 use reqwest::header;
 use serde_json::{Map, Value};
-use zerotier_one::types::IPv4;
 use {zerotier_central as central, zerotier_one as one};
 
 const CENTRAL_BASE_URL: &str = "https://api.zerotier.com/api/v1";
@@ -132,13 +126,11 @@ fn central_cli() -> Command {
             Command::new("status").about("Get the client status"),
             Command::new("network")
                 .about("Interface for actions related to ZeroTier networks")
-                .arg_required_else_help(true)
                 .args([
                     Arg::new("id")
                         .long("id")
                         .help("Identifier of the network")
-                        .value_name("NWID")
-                        .required(true),
+                        .value_name("NWID"),
                     Arg::new("as-json")
                         .short('j')
                         .long("as-json")
@@ -254,7 +246,7 @@ fn central_cli() -> Command {
                                 ]),
                         ]),
                     Command::new("delete")
-                        .about("Delete netword member")
+                        .about("Delete network member")
                         .arg_required_else_help(true)
                         .args([
                             Arg::new("network-id")
@@ -384,7 +376,7 @@ impl<'a> CentralCliHandler<'a> {
     async fn network_delete(&self, matches: &ArgMatches) -> Result<()> {
         let network_id = matches.get_one::<String>("id").unwrap();
         self.client.delete_network(network_id).await?;
-        println!("Network (ID: {}) deleted", network_id);
+        println!("Network (ID: {network_id}) deleted");
         Ok(())
     }
 
@@ -401,13 +393,9 @@ impl<'a> CentralCliHandler<'a> {
     /// Handles member-related subcommands.
     async fn handle_member(&self, matches: &ArgMatches) -> Result<()> {
         match matches.subcommand() {
-            Some(("update", subs)) => {
-                self.member_update(subs).await?;
-            }
+            Some(("update", subs)) => self.member_update(subs).await?,
             Some(("delete", subs)) => self.member_delete(subs).await?,
-            Some(("list", subs)) => {
-                let _ = self.member_list(subs, true).await?;
-            }
+            Some(("list", subs)) => _ = self.member_list(subs, true).await?,
             _ => {}
         }
         Ok(())
@@ -417,15 +405,16 @@ impl<'a> CentralCliHandler<'a> {
     async fn member_update(&self, matches: &ArgMatches) -> Result<()> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
+
         if matches.get_flag("authorize-all") {
             self.member_update_authorize_all(matches, &network_id)
                 .await?;
             return Ok(());
         }
+
         let member_id =
             matches.get_one::<String>("member-id").unwrap().to_owned();
-
-        let member = 'member: {
+        let member = 'memb: {
             if let Some(name) = matches.get_one::<String>("name") {
                 let mut member: Member = self
                     .client
@@ -433,12 +422,12 @@ impl<'a> CentralCliHandler<'a> {
                     .await?
                     .into_inner();
                 member.name = Some(name.to_string());
-                break 'member member;
+                break 'memb member;
             } else if let Some(path) = matches.get_one::<PathBuf>("data") {
                 let file = File::open(path).unwrap();
                 let reader = BufReader::new(file);
                 let member: Member = serde_json::from_reader(reader).unwrap();
-                break 'member member;
+                break 'memb member;
             };
             let empty_member: Member = serde_json::from_str("{}").unwrap();
             empty_member
@@ -518,7 +507,6 @@ impl<'a> CentralCliHandler<'a> {
 fn one_cli() -> Command {
     Command::new("one")
         .about("A minimal ZeroTierOne Service CLI")
-        .arg_required_else_help(true)
         .subcommand_required(true)
         .subcommands([
             Command::new("status").about("Gets the node status"),
@@ -526,7 +514,6 @@ fn one_cli() -> Command {
                 .about("List all the peers your node knows about"),
             Command::new("network")
                 .about("Interface for actions related to networking")
-                .arg_required_else_help(true)
                 .subcommands([
                     Command::new("post")
                         .about(
@@ -585,7 +572,6 @@ fn one_cli() -> Command {
                 ]),
             Command::new("controller")
                 .about("Interfaces controller-related functionality")
-                .arg_required_else_help(true)
                 .subcommand_required(true)
                 .subcommands([
                     Command::new("status").about("Gets the controller status"),
@@ -600,14 +586,14 @@ fn one_cli() -> Command {
                                 .short('j')
                                 .long("as-json")
                                 .help("Print the requsted network as JSON")
-                                .value_name("NWID")
+                                .action(ArgAction::SetTrue)
                                 .requires("id"),
                         ])
                         .subcommands([
                             Command::new("post")
                                 .about(
-                                    "Update an existing the network or create \
-                                     a new one",
+                                    "Update an existing network or create a \
+                                     new one",
                                 )
                                 .args([
                                     Arg::new("id")
@@ -623,6 +609,15 @@ fn one_cli() -> Command {
                                         )
                                         .value_name("FILE")
                                         .requires("id"),
+                                    Arg::new("name")
+                                        .long("name")
+                                        .help(
+                                            "Name of the network to be created",
+                                        )
+                                        .value_name("NAME")
+                                        .required_unless_present_any([
+                                            "id", "data",
+                                        ]),
                                 ]),
                             Command::new("delete")
                                 .about("Delete network hosted by controller")
@@ -640,13 +635,105 @@ fn one_cli() -> Command {
                         ]),
                     Command::new("member")
                         .about("Networks members-related actions")
-                        .subcommand(
+                        .args([
+                            Arg::new("id")
+                                .long("id")
+                                .help("Identifier of the member")
+                                .value_name("MEMID"),
+                            Arg::new("as-json")
+                                .short('j')
+                                .long("as-json")
+                                .help("Print the requsted member as JSON")
+                                .requires("id"),
+                        ])
+                        .subcommands([
+                            Command::new("post")
+                                .about("Update network member(s)")
+                                .args([
+                                    Arg::new("network-id")
+                                        .short('n')
+                                        .long("network-id")
+                                        .help("Identifier of the network")
+                                        .value_name("NWID")
+                                        .required(true),
+                                    Arg::new("member-id")
+                                        .short('m')
+                                        .long("member-id")
+                                        .help(
+                                            "Identifier of the member ot \
+                                             update",
+                                        )
+                                        .value_name("MEMID")
+                                        .requires("network-id"),
+                                    Arg::new("data")
+                                        .short('d')
+                                        .long("data")
+                                        .help(
+                                            "File with the body to update with",
+                                        )
+                                        .value_name("FILE")
+                                        .requires("network-id")
+                                        .requires("member-id")
+                                        .required_unless_present_any([
+                                            "authorize-all",
+                                            "name",
+                                        ])
+                                        .value_parser(value_parser!(
+                                            std::path::PathBuf
+                                        )),
+                                    Arg::new("authorize-all")
+                                        .short('A')
+                                        .long("authorize-all")
+                                        .help(
+                                            "Authorize all members of the \
+                                             network",
+                                        )
+                                        .action(ArgAction::SetTrue)
+                                        .requires("network-id")
+                                        .required_unless_present_any([
+                                            "data",
+                                            "name",
+                                            "member-id",
+                                        ]),
+                                    Arg::new("name")
+                                        .short('N')
+                                        .long("name")
+                                        .help("Give network member a name")
+                                        .value_name("NAME")
+                                        .requires("network-id")
+                                        .requires("member-id")
+                                        .required_unless_present_any([
+                                            "authorize-all",
+                                            "data",
+                                        ]),
+                                ]),
+                            Command::new("delete")
+                                .about("Delete network member")
+                                .arg_required_else_help(true)
+                                .args([
+                                    Arg::new("network-id")
+                                        .short('n')
+                                        .long("network-id")
+                                        .help("Identifier of the network")
+                                        .value_name("NWID")
+                                        .required(true),
+                                    Arg::new("member-id")
+                                        .short('m')
+                                        .long("member-id")
+                                        .help(
+                                            "Identifier of the network member \
+                                             to delete",
+                                        )
+                                        .value_name("MEMID")
+                                        .requires("network-id"),
+                                ]),
                             Command::new("list")
                                 .about("List the network members")
                                 .arg_required_else_help(true)
                                 .arg(
-                                    Arg::new("id")
-                                        .long("id")
+                                    Arg::new("network-id")
+                                        .short('n')
+                                        .long("network-id")
                                         .help(
                                             "ID of the network to list \
                                              members of it",
@@ -654,7 +741,7 @@ fn one_cli() -> Command {
                                         .value_name("NWID")
                                         .required(true),
                                 ),
-                        ),
+                        ]),
                 ]),
         ])
 }
@@ -712,8 +799,8 @@ impl<'a> OneCliHandler<'a> {
 
     /// Joins or updates a network.
     async fn network_post(&self, matches: &ArgMatches) -> Result<()> {
-        let id = matches.get_one::<String>("id").unwrap().to_owned();
-        let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
+        let network_id = matches.get_one::<String>("id").unwrap().to_owned();
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
 
         let allow_dns = Some(matches.get_flag("allow-dns"));
         let allow_default = Some(matches.get_flag("allow-default"));
@@ -728,7 +815,7 @@ impl<'a> OneCliHandler<'a> {
         };
         let network = self
             .client
-            .network_membership_set_network(&network_id, &body)
+            .network_membership_set_network(&zt_network_id, &body)
             .await?
             .into_inner();
         println!("{network}");
@@ -737,17 +824,30 @@ impl<'a> OneCliHandler<'a> {
 
     /// Leaves a network.
     async fn network_leave(&self, matches: &ArgMatches) -> Result<()> {
-        let id = matches.get_one::<String>("id").unwrap().to_owned();
-        let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
+        let network_id = matches.get_one::<String>("id").unwrap().to_owned();
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
 
-        match self
-            .client
-            .network_membership_del_network(&network_id)
-            .await
-        {
-            Ok(_) => println!("Left network (ID: {id})"),
-            Err(e) => eprintln!("Failed to leave network (ID: {id}): {e}"),
-        };
+        self.client
+            .network_membership_del_network(&zt_network_id)
+            .await?;
+
+        // TODO: This and all the pieces like this (can return errors) must be
+        // refactored to deliver solid error handling.
+        // ```rust
+        // match self
+        //     .client
+        //     .network_membership_del_network(&zt_network_id)
+        //     .await
+        // {
+        //     std::result::Result::Ok(_) => {
+        //         println!("Left network (ID: {network_id})");
+        //     }
+        //     std::result::Result::Err(e) => {
+        //         eprintln!("Failed to leave network (ID: {network_id}): {e}");
+        //     }
+        // };
+        // ```
+
         Ok(())
     }
 
@@ -775,8 +875,12 @@ impl<'a> OneCliHandler<'a> {
                     .into_inner();
                 println!("{status}");
             }
-            Some(("network", subs)) => self.handle_controller_network(subs).await?,
-            Some(("member", subs)) => self.handle_controller_member(subs).await?,
+            Some(("network", subs)) => {
+                self.handle_controller_network(subs).await?
+            }
+            Some(("member", subs)) => {
+                self.handle_controller_member(subs).await?
+            }
             _ => {}
         }
         Ok(())
@@ -788,8 +892,10 @@ impl<'a> OneCliHandler<'a> {
     ) -> Result<()> {
         match matches.subcommand() {
             Some(("post", subs)) => self.controller_network_post(subs).await?,
-            Some(("delete", subs)) => self.controller_network_delete(subs).await?,
-            Some(("list", _)) => self.controller_networks_list().await?,
+            Some(("delete", subs)) => {
+                self.controller_network_delete(subs).await?
+            }
+            Some(("list", _)) => self.controller_network_list().await?,
             _ => self.controller_network_long(matches).await?,
         }
         Ok(())
@@ -799,12 +905,12 @@ impl<'a> OneCliHandler<'a> {
         &self,
         matches: &ArgMatches,
     ) -> Result<()> {
-        let id = matches.get_one::<String>("id").unwrap().to_owned();
-        let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
+        let network_id = matches.get_one::<String>("id").unwrap().to_owned();
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
         let as_json = matches.get_flag("as-json");
         let network = self
             .client
-            .network_read_network(&network_id)
+            .network_read_network(&zt_network_id)
             .await?
             .into_inner();
         if as_json {
@@ -816,65 +922,82 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
-    async fn controller_network_post(&self, matches: &ArgMatches) -> Result<()> {
+    async fn controller_network_post(
+        &self,
+        matches: &ArgMatches,
+    ) -> Result<()> {
         let name = matches.get_one::<String>("name").unwrap().to_owned();
-        let body = self.default_controller_network_request(name).await;
-        let network_id = self
+        let body = 'body: {
+            if let Some(path) = matches.get_one::<PathBuf>("data") {
+                let file = File::open(path).unwrap();
+                let reader = BufReader::new(file);
+                let controller_network_request: ControllerNetworkRequest =
+                    serde_json::from_reader(reader).unwrap();
+                break 'body controller_network_request;
+            } else {
+                break 'body self._default_controller_network_request(name);
+            }
+        };
+
+        let zt_network_id = self
             .client
             .random_network_random_network(&body)
             .await?
             .into_inner()
             .id;
-
         let controller_network = self
             .client
-            .network_post_network(&network_id, &body)
+            .network_post_network(&zt_network_id, &body)
             .await?
             .into_inner();
-        println!("{controller_network}");
+
+        let network_id = controller_network.id.to_string();
+        println!("Network (ID: {network_id}) now hosted by this controller");
         Ok(())
     }
 
-    async fn default_controller_network_request(
-        &self, name: String
+    fn _default_controller_network_request(
+        &self,
+        name: String,
     ) -> ControllerNetworkRequest {
         let dns = Some(ControllerNetworkRequestDns::EmptyArrayItem(
-            EmptyArrayItem(vec![serde_json::Value::Null])
+            EmptyArrayItem(vec![serde_json::Value::Null]),
         ));
         let enable_broadcast = Some(true);
 
-        let ip_assignment_pools = vec![IpAssignmentPool{
-            ip_range_start: IpAssignmentPoolRangeStart{
-                subtype_0: Some(IPv4::from(Ipv4Addr::new(192, 168, 192, 0))),
-                subtype_1: None,
-            },
-            ip_range_end: IpAssignmentPoolRangeEnd{
-                subtype_0: Some(IPv4::from(Ipv4Addr::new(192, 168, 192, 254))),
-                subtype_1: None,
-            },
+        let ip_range_start_addr =
+            IPv4::from(Ipv4Addr::from_str("192.168.192.1").unwrap());
+        let ip_range_end_addr =
+            IPv4::from(Ipv4Addr::from_str("192.168.192.254").unwrap());
+        let ip_assignment_pools = vec![IpAssignmentPool {
+            ip_range_start: IpAssignmentPoolRangeStart::Subtype0(Some(
+                ip_range_start_addr,
+            )),
+            ip_range_end: IpAssignmentPoolRangeEnd::Subtype0(Some(
+                ip_range_end_addr,
+            )),
         }];
 
-        let mtu = Some(one::types::Mtu::from(2800));        
-        let multicast_limit = Some(one::types::USafeint::from(0));
+        let mtu = Some(one::types::Mtu::from(2800));
+        let multicast_limit = Some(one::types::USafeint::from(32));
         let name = Some(name);
         let private = Some(true);
 
-        let routes = vec![Route{
-            target: RouteTarget{
-                subtype_0: Some(IPv4::from(Ipv4Addr::new(192, 168, 192, 0))),
-                subtype_1: None,
-            },
+        let route_target_addr =
+            IpSlashPort::from_str("192.168.192.0/24").unwrap();
+        let routes = vec![Route {
+            target: Some(route_target_addr),
             via: None,
         }];
 
-        let v4_assign_mode = Some(V4AssignMode{zt: Some(true)});
-        let v6_assign_mode = Some(V6AssignMode{
+        let v4_assign_mode = Some(V4AssignMode { zt: Some(true) });
+        let v6_assign_mode = Some(V6AssignMode {
             _6plane: Some(false),
             rfc4193: Some(false),
-            zt: Some(true)
+            zt: Some(false),
         });
-        
-        ControllerNetworkRequest{
+
+        ControllerNetworkRequest {
             dns,
             enable_broadcast,
             ip_assignment_pools,
@@ -888,19 +1011,21 @@ impl<'a> OneCliHandler<'a> {
         }
     }
 
-    async fn controller_network_delete(&self, matches: &ArgMatches) -> Result<()> {
-        let id = matches.get_one::<String>("id").unwrap().to_owned();
-        let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
-        let controller_network = self
-            .client
-            .network_delete_network(&network_id)
+    async fn controller_network_delete(
+        &self,
+        matches: &ArgMatches,
+    ) -> Result<()> {
+        let network_id = matches.get_one::<String>("id").unwrap().to_owned();
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
+        self.client
+            .network_delete_network(&zt_network_id)
             .await?
             .into_inner();
-        println!("{controller_network}");
+        println!("Network (ID: {network_id}) deleted");
         Ok(())
     }
 
-    async fn controller_networks_list(&self) -> Result<()> {
+    async fn controller_network_list(&self) -> Result<()> {
         let networks = self
             .client
             .network_read_networks()
@@ -917,28 +1042,136 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
-    async fn handle_controller_member(&self, matches: &ArgMatches) -> Result<()> {
+    async fn handle_controller_member(
+        &self,
+        matches: &ArgMatches,
+    ) -> Result<()> {
         match matches.subcommand() {
-            Some(("list", subs)) => self.member_list(subs).await?,
-            _ => {},
+            Some(("post", subs)) => self.member_post(subs).await?,
+            Some(("delete", subs)) => self.member_delete(subs).await?,
+            Some(("list", subs)) => _ = self.member_list(subs, true).await?,
+            _ => {}
         }
         Ok(())
     }
 
-    async fn member_list(&self, matches: &ArgMatches) -> Result<()> {
-        let id = matches.get_one::<String>("id").unwrap().to_owned();
-        let network_id = ZtNetworkId::from_str(id.as_str()).unwrap();
+    async fn member_post(&self, matches: &ArgMatches) -> Result<()> {
+        let network_id =
+            matches.get_one::<String>("network-id").unwrap().to_owned();
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
+
+        if matches.get_flag("authorize-all") {
+            self.member_post_authorize_all(matches, &zt_network_id)
+                .await?;
+            return Ok(());
+        }
+
+        let member_id =
+            matches.get_one::<String>("member-id").unwrap().to_owned();
+        let zt_member_id = ZtAddress::from_str(member_id.as_str()).unwrap();
+        let member_request = 'membreq: {
+            if let Some(name) = matches.get_one::<String>("name") {
+                let mut member: ControllerNetworkMember = self
+                    .client
+                    .network_member_get_network_member(
+                        &zt_network_id,
+                        &zt_member_id,
+                    )
+                    .await?
+                    .into_inner();
+                member.name = Some(name.to_string());
+                let member_request =
+                    ControllerNetworkMemberRequest::from(&member);
+                break 'membreq member_request;
+            } else if let Some(path) = matches.get_one::<PathBuf>("data") {
+                let file = File::open(path).unwrap();
+                let reader = BufReader::new(file);
+                let member_request: ControllerNetworkMemberRequest =
+                    serde_json::from_reader(reader).unwrap();
+                break 'membreq member_request;
+            };
+            let empty_member: ControllerNetworkMemberRequest =
+                serde_json::from_str("{}").unwrap();
+            empty_member
+        };
+
+        let member_updated = self
+            .client
+            .network_member_post_network_member(
+                &zt_network_id,
+                &zt_member_id,
+                &member_request,
+            )
+            .await?
+            .into_inner();
+        println!("{member_updated}");
+        Ok(())
+    }
+
+    async fn member_post_authorize_all(
+        &self,
+        matches: &ArgMatches,
+        network_id: &ZtNetworkId,
+    ) -> Result<()> {
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
+        let members = self.member_list(matches, false).await?;
+        println!("Authorized member(s) (short):");
+        for (n, member) in members.iter().enumerate() {
+            let mut new_member = member.clone();
+            new_member.authorized = Some(true);
+            let zt_member_id = member.address.to_owned();
+            let new_member_request =
+                ControllerNetworkMemberRequest::from(&new_member);
+            let member_updated = self
+                .client
+                .network_member_post_network_member(
+                    &zt_network_id,
+                    &zt_member_id,
+                    &new_member_request,
+                )
+                .await?
+                .into_inner();
+            println!("\n{}. {}", n + 1, member_updated);
+        }
+        Ok(())
+    }
+
+    async fn member_delete(&self, matches: &ArgMatches) -> Result<()> {
+        let network_id =
+            matches.get_one::<String>("network-id").unwrap().to_owned();
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
+        let member_id =
+            matches.get_one::<String>("member-id").unwrap().to_owned();
+        let zt_member_id = ZtAddress::from_str(member_id.as_str()).unwrap();
+        self.client
+            .network_member_del_network_member(&zt_network_id, &zt_member_id)
+            .await?
+            .into_inner();
+        println!("Member (ID: {member_id}) deleted");
+        Ok(())
+    }
+
+    async fn member_list(
+        &self,
+        matches: &ArgMatches,
+        display: bool,
+    ) -> Result<Vec<ControllerNetworkMember>> {
+        let network_id =
+            matches.get_one::<String>("network-id").unwrap().to_owned();
+        let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
         let members = self
             .client
-            .member_list_network_members2(&network_id)
+            .member_list_network_members2(&zt_network_id)
             .await?
             .into_inner()
             .data;
 
-        println!("Network (ID: {id}) member list (short):");
-        for (n, memb) in members.iter().enumerate() {
-            println!("\n{}. {}", n + 1, memb);
+        if display {
+            println!("Network (ID: {network_id}) member list (short):");
+            for (n, memb) in members.iter().enumerate() {
+                println!("\n{}. {}", n + 1, memb);
+            }
         }
-        Ok(())
+        Ok(members)
     }
 }

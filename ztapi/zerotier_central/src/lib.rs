@@ -707,9 +707,9 @@ pub mod types {
             let name = 'block: {
                 let name_str = self.name.show_or("").to_string();
                 if name_str.len() > 0 {
-                    break 'block name_str
+                    break 'block name_str;
                 } else {
-                    break 'block "Unnamed".to_string()
+                    break 'block "Unnamed".to_string();
                 }
             };
             let node_id = self.node_id.show_or(::serde_json::Value::Null);
@@ -723,7 +723,7 @@ pub mod types {
                 .as_ref()
                 .unwrap()
                 .iter()
-                .map(|val| format!("{}", val))
+                .map(|val| format!("{val}"))
                 .collect::<Vec<String>>()
                 .join(", ");
 
@@ -1338,12 +1338,12 @@ pub mod types {
                 .show_or(::serde_json::Value::Null);
 
             let config = self.config.as_ref().unwrap();
-            let name = 'block: {
+            let name = 'name: {
                 let name_str = config.name.show_or("").to_string();
                 if name_str.len() > 0 {
-                    break 'block name_str
+                    break 'name name_str;
                 } else {
-                    break 'block "Unnamed".to_string()
+                    break 'name "Unnamed".to_string();
                 }
             };
             let private = config.private.show_or(::serde_json::Value::Null);

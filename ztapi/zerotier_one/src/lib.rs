@@ -258,20 +258,16 @@ pub mod types {
     impl ::std::fmt::Display for ControllerNetwork {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             let id = self.id.to_string();
-            let nwid = self.nwid.to_string();
-            let name = 'block: {
+            let name = 'name: {
                 if self.name.len() > 0 {
-                    break 'block self.name.as_str()   
+                    break 'name self.name.as_str();
                 } else {
-                    break 'block &"unnamed"
+                    break 'name &"unnamed";
                 }
             };
             let private = self.private;
 
-            write!(
-                f,
-                "Network {name} (ID: {id})\n * Private: {private}\n * NWID: {nwid}"
-            )
+            write!(f, "Network {name} (ID: {id})\n * Private: {private}")
         }
     }
 
@@ -410,12 +406,13 @@ pub mod types {
     }
 
     /// ControllerNetworkIpAssignmentPoolsItemIpRangeEnd
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -427,11 +424,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkIpAssignmentPoolsItemIpRangeEnd {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkIpAssignmentPoolsItemIpRangeEnd {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkIpAssignmentPoolsItemIpRangeEnd>
@@ -445,12 +441,13 @@ pub mod types {
     }
 
     /// ControllerNetworkIpAssignmentPoolsItemIpRangeStart
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -462,11 +459,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkIpAssignmentPoolsItemIpRangeStart {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkIpAssignmentPoolsItemIpRangeStart {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkIpAssignmentPoolsItemIpRangeStart>
@@ -674,11 +670,11 @@ pub mod types {
             default,
             skip_serializing_if = "Vec::is_empty"
         )]
-        pub ip_assignments: Vec<String>,
+        pub ip_assignments: Vec<Option<String>>,
         #[serde(rename = "lastAuthorizedCredential")]
         pub last_authorized_credential: Option<String>,
         #[serde(rename = "lastAuthorizedCredentialType")]
-        pub last_authorized_credential_type: String,
+        pub last_authorized_credential_type: Option<String>,
         #[serde(rename = "lastAuthorizedTime")]
         pub last_authorized_time: USafeint,
         #[serde(rename = "lastDeauthorizedTime")]
@@ -726,33 +722,45 @@ pub mod types {
             let address = self.address.to_string();
             let authorized = self.authorized.show_or(::serde_json::Value::Null);
             let id = self.id.to_string();
-            let ip_assignments = &self.ip_assignments;
-            let name = 'block: {
+
+            let ip_assignments = 'ips: {
+                let ip_assignments = &self.ip_assignments;
+                let ip_assignments_str = ip_assignments
+                    .iter()
+                    .map(|val| val.show_or("").to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                break 'ips ip_assignments_str;
+            };
+
+            let name = 'name: {
                 let name_str = self.name.show_or("").to_string();
                 if name_str.len() > 0 {
-                    break 'block name_str
+                    break 'name name_str;
                 } else {
-                    break 'block "Unnamed".to_string()
+                    break 'name "Unnamed".to_string();
                 }
             };
+
             let nwid = self.nwid.to_string();
 
             write!(
                 f,
                 "Memeber {name} (ID: {id}) (short):\n * Address: {address}\n \
-                * Authorized: {authorized}\n * IP assignments: {ip_assignments:?}\n \
-                * Network ID: {nwid}"
+                 * Authorized: {authorized}\n * IP assignments: \
+                 [{ip_assignments}]\n * Network ID: {nwid}"
             )
         }
     }
 
     /// ControllerNetworkMemberIpAssignmentsItem
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -764,12 +772,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    // This bullshit does not work. API responds with a `String`, not an object.
-    pub struct ControllerNetworkMemberIpAssignmentsItem {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkMemberIpAssignmentsItem {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkMemberIpAssignmentsItem>
@@ -777,15 +783,6 @@ pub mod types {
     {
         fn from(value: &ControllerNetworkMemberIpAssignmentsItem) -> Self {
             value.clone()
-        }
-    }
-
-    impl ::std::fmt::Display for ControllerNetworkMemberIpAssignmentsItem {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-            let subtype_0 = self.subtype_0.show_or(::serde_json::Value::Null);
-            let subtype_1 = self.subtype_1.show_or(::serde_json::Value::Null);
-            
-            write!(f, "v4: {subtype_0}, v6: {subtype_1}")
         }
     }
 
@@ -1059,8 +1056,7 @@ pub mod types {
             default,
             skip_serializing_if = "Vec::is_empty"
         )]
-        pub ip_assignments:
-            Vec<ControllerNetworkMemberRequestIpAssignmentsItem>,
+        pub ip_assignments: Vec<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub name: Option<String>,
         #[serde(
@@ -1083,13 +1079,34 @@ pub mod types {
         }
     }
 
+    impl From<&ControllerNetworkMember> for ControllerNetworkMemberRequest {
+        fn from(value: &ControllerNetworkMember) -> Self {
+            let value_ip_assignments = value
+                .ip_assignments
+                .iter()
+                .map(|val| val.show_or("").to_string().to_owned())
+                .collect();
+            let controller_network_member_request =
+                ControllerNetworkMemberRequest {
+                    active_bridge: value.active_bridge,
+                    authorized: value.authorized,
+                    ip_assignments: value_ip_assignments,
+                    name: value.name.to_owned(),
+                    no_auto_assign_ips: value.no_auto_assign_ips,
+                    sso_exempt: value.sso_exempt,
+                };
+            controller_network_member_request
+        }
+    }
+
     /// ControllerNetworkMemberRequestIpAssignmentsItem
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -1101,11 +1118,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkMemberRequestIpAssignmentsItem {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkMemberRequestIpAssignmentsItem {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkMemberRequestIpAssignmentsItem>
@@ -1885,12 +1901,13 @@ pub mod types {
     }
 
     /// ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOF": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -1902,11 +1919,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkRequestIpAssignmentPoolsItemIpRangeEnd>
@@ -1920,12 +1936,13 @@ pub mod types {
     }
 
     /// ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -1937,11 +1954,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkRequestIpAssignmentPoolsItemIpRangeStart>
@@ -1991,7 +2007,14 @@ pub mod types {
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
     pub struct ControllerNetworkRequestRoutesItem {
-        pub target: ControllerNetworkRequestRoutesItemTarget,
+        // Commented out, since `ControllerNetworkRequestRoutesItemTarget` does
+        // not include port.
+        //
+        // ```rust
+        // pub target: ControllerNetworkRequestRoutesItemTarget,
+        // ```
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub target: Option<IpSlashPort>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub via: Option<ControllerNetworkRequestRoutesItemVia>,
     }
@@ -2005,12 +2028,14 @@ pub mod types {
     }
 
     /// ControllerNetworkRequestRoutesItemTarget
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type. Wonder if this
+    /// `enum` is necessary at all.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -2022,11 +2047,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkRequestRoutesItemTarget {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkRequestRoutesItemTarget {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkRequestRoutesItemTarget>
@@ -2038,12 +2062,13 @@ pub mod types {
     }
 
     /// ControllerNetworkRequestRoutesItemVia
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOF": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -2055,11 +2080,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkRequestRoutesItemVia {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkRequestRoutesItemVia {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkRequestRoutesItemVia>
@@ -2179,7 +2203,14 @@ pub mod types {
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
     pub struct ControllerNetworkRoutesItem {
-        pub target: ControllerNetworkRoutesItemTarget,
+        // Commented out, since `ControllerNetworkRoutesItemTarget` does not
+        // include port.
+        //
+        // ```rust
+        // pub target: ControllerNetworkRoutesItemTarget,
+        // ```
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub target: Option<IpSlashPort>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub via: Option<ControllerNetworkRoutesItemVia>,
     }
@@ -2191,12 +2222,14 @@ pub mod types {
     }
 
     /// ControllerNetworkRoutesItemTarget
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type. Wonder if this
+    /// `enum` is necessary at all.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -2208,11 +2241,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkRoutesItemTarget {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkRoutesItemTarget {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkRoutesItemTarget>
@@ -2224,12 +2256,13 @@ pub mod types {
     }
 
     /// ControllerNetworkRoutesItemVia
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -2241,11 +2274,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct ControllerNetworkRoutesItemVia {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum ControllerNetworkRoutesItemVia {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&ControllerNetworkRoutesItemVia> for ControllerNetworkRoutesItemVia {
@@ -2449,7 +2481,7 @@ pub mod types {
     impl ::std::fmt::Display for ControllerStatus {
         fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
             let api_version = self.api_version.to_string().to_owned();
-            write!(f, "* API version: {api_version}")
+            write!(f, "Controller status:\n * API version: {api_version}")
         }
     }
 
@@ -2986,15 +3018,30 @@ pub mod types {
     }
 
     impl ::std::fmt::Display for JoinedNetwork {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let name = self.name.clone();
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+            let name = 'name: {
+                if self.name.len() > 0 {
+                    break 'name self.name.to_owned();
+                } else {
+                    break 'name "Unnamed".to_string();
+                }
+            };
             let id: String = self.id.clone().into();
             let status: String = self.status.to_string();
-            let assigned_ips = self.assigned_addresses.to_vec();
+            let assigned_ips = 'ips: {
+                let assigned_ips = self.assigned_addresses.to_vec();
+                let addresses_ips_str = assigned_ips
+                    .iter()
+                    .map(|val| format!("{}", val))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                break 'ips addresses_ips_str;
+            };
+
             write!(
                 f,
-                "Network {name} (ID: {id})\n * Status: {status}\n * Assigned IPs: \
-                {assigned_ips:?}",
+                "Network {name} (ID: {id})\n * Status: {status}\n * Assigned \
+                 IPs: [{assigned_ips}]",
             )
         }
     }
@@ -3194,12 +3241,13 @@ pub mod types {
     }
 
     /// JoinedNetworkRoutesItemVia
+    /// (Changed from `anyOf` to `oneOf`, since the `enum` type.)
     ///
     /// <details><summary>JSON schema</summary>
     ///
     /// ```json
     /// {
-    ///  "anyOf": [
+    ///  "oneOf": [
     ///    {
     ///      "$ref": "#/components/schemas/IPv4"
     ///    },
@@ -3211,11 +3259,10 @@ pub mod types {
     /// ```
     /// </details>
     #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-    pub struct JoinedNetworkRoutesItemVia {
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_0: Option<IPv4>,
-        #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
-        pub subtype_1: Option<IPv6>,
+    #[serde(untagged)]
+    pub enum JoinedNetworkRoutesItemVia {
+        Subtype0(Option<IPv4>),
+        Subtype1(Option<IPv6>),
     }
 
     impl From<&JoinedNetworkRoutesItemVia> for JoinedNetworkRoutesItemVia {
@@ -4925,18 +4972,19 @@ pub mod types {
     impl ::std::fmt::Display for Peer {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             let address = self.address.to_string();
-            let path = 'block: {
+            let path = 'path: {
                 if self.paths.len() > 0 {
-                    break 'block self.paths[0].address.deref().to_owned();
+                    break 'path self.paths[0].address.deref().to_owned();
                 } else {
-                    break 'block "Unreachable".to_string();
+                    break 'path "Unreachable".to_string();
                 };
             };
             let role = self.role.to_string();
+
             write!(
                 f,
-                "Peer (address: {address}) (short):\n * Path: {path}\n * Role: \
-                {role}",
+                "Peer (address: {address}) (short):\n * Path: {path}\n * \
+                 Role: {role}",
             )
         }
     }
@@ -6061,6 +6109,7 @@ impl Client {
         Error<::serde_json::Map<String, ::serde_json::Value>>,
     > {
         let url = format!("{}/controller/network", self.baseurl,);
+        // let body = serde_json::json!({"some": "field"});
         #[allow(unused_mut)]
         let mut request = self
             .client
@@ -6073,6 +6122,7 @@ impl Client {
             .build()?;
         let result = self.client.execute(request).await;
         let response = result?;
+
         match response.status().as_u16() {
             200u16 => ResponseValue::from_response(response).await,
             401u16 => Err(Error::ErrorResponse(
