@@ -30,9 +30,7 @@ const ONE_BASE_URL: &str = "http://localhost:9993";
 /// Entry point of the CLI. Initializes clients and delegates execution.
 pub async fn cli() -> Result<()> {
     let matches = command!()
-        .about(
-            "A mininal CLI combining ZeroTier Central and ZeroTier One Service essential functionality",
-        )
+        .about("A mininal CLI combining ZeroTier Central and ZeroTier One Service essential functionality")
         .arg_required_else_help(true)
         .subcommands([central_cli(), one_cli()])
         .get_matches();
@@ -151,9 +149,7 @@ fn central_cli() -> Command {
                             Arg::new("private")
                                 .short('p')
                                 .long("private")
-                                .help(
-                                    "Network access policy (default is public)",
-                                )
+                                .help("Network access policy (default is public)")
                                 .action(ArgAction::SetTrue),
                         ]),
                     Command::new("update")
