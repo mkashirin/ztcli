@@ -31,8 +31,7 @@ const ONE_BASE_URL: &str = "http://localhost:9993";
 pub async fn cli() -> Result<()> {
     let matches = command!()
         .about(
-            "A mininal CLI combining ZeroTier Central and ZeroTier One \
-             Service essential functionality",
+            "A mininal CLI combining ZeroTier Central and ZeroTier One Service essential functionality",
         )
         .arg_required_else_help(true)
         .subcommands([central_cli(), one_cli()])
@@ -258,10 +257,7 @@ fn central_cli() -> Command {
                             Arg::new("member-id")
                                 .short('m')
                                 .long("member-id")
-                                .help(
-                                    "Identifier of the network member to \
-                                     delete",
-                                )
+                                .help("Identifier of the network member to delete")
                                 .value_name("MEMID")
                                 .requires("network-id"),
                         ]),
@@ -516,10 +512,7 @@ fn one_cli() -> Command {
                 .about("Interface for actions related to networking")
                 .subcommands([
                     Command::new("post")
-                        .about(
-                            "Join or update the network with the given ID. \
-                             All flags default to true",
-                        )
+                        .about("Join or update the network with the given ID. All flags default to true")
                         .arg_required_else_help(true)
                         .args([
                             Arg::new("id")
@@ -535,25 +528,17 @@ fn one_cli() -> Command {
                             Arg::new("allow-default")
                                 .short('D')
                                 .long("allow-default")
-                                .help(
-                                    "Whether default addresses would be \
-                                     allowed",
-                                )
+                                .help("Whether default addresses would be allowed")
                                 .action(ArgAction::SetFalse),
                             Arg::new("allow-managed")
                                 .short('m')
                                 .long("allow-managed")
-                                .help(
-                                    "Whether managed addresses would be \
-                                     allowed",
-                                )
+                                .help("Whether managed addresses would be allowed")
                                 .action(ArgAction::SetFalse),
                             Arg::new("allow-global")
                                 .short('g')
                                 .long("allow-global")
-                                .help(
-                                    "Whether global addresses would be allowed",
-                                )
+                                .help("Whether global addresses would be allowed")
                                 .action(ArgAction::SetFalse),
                         ]),
                     Command::new("leave")
@@ -566,9 +551,7 @@ fn one_cli() -> Command {
                                 .value_name("NWID")
                                 .required(true),
                         ),
-                    Command::new("list").about(
-                        "List all the networks that this node is joined to",
-                    ),
+                    Command::new("list").about("List all the networks that this node is joined to"),
                 ]),
             Command::new("controller")
                 .about("Interfaces controller-related functionality")
@@ -591,10 +574,7 @@ fn one_cli() -> Command {
                         ])
                         .subcommands([
                             Command::new("post")
-                                .about(
-                                    "Update an existing network or create a \
-                                     new one",
-                                )
+                                .about("Update an existing network or create a new one")
                                 .args([
                                     Arg::new("id")
                                         .long("id")
@@ -604,16 +584,12 @@ fn one_cli() -> Command {
                                     Arg::new("data")
                                         .short('d')
                                         .long("data")
-                                        .help(
-                                            "File with the body to update with",
-                                        )
+                                        .help("File with the body to update with")
                                         .value_name("FILE")
                                         .requires("id"),
                                     Arg::new("name")
                                         .long("name")
-                                        .help(
-                                            "Name of the network to be created",
-                                        )
+                                        .help("Name of the network to be created")
                                         .value_name("NAME")
                                         .required_unless_present_any([
                                             "id", "data",
@@ -628,10 +604,7 @@ fn one_cli() -> Command {
                                         .value_name("NWID")
                                         .required(true),
                                 ),
-                            Command::new("list").about(
-                                "List all the networks hosted by this \
-                                 controller",
-                            ),
+                            Command::new("list").about("List all the networks hosted by this controller"),
                         ]),
                     Command::new("member")
                         .about("Networks members-related actions")
@@ -659,18 +632,13 @@ fn one_cli() -> Command {
                                     Arg::new("member-id")
                                         .short('m')
                                         .long("member-id")
-                                        .help(
-                                            "Identifier of the member ot \
-                                             update",
-                                        )
+                                        .help("Identifier of the member to update")
                                         .value_name("MEMID")
                                         .requires("network-id"),
                                     Arg::new("data")
                                         .short('d')
                                         .long("data")
-                                        .help(
-                                            "File with the body to update with",
-                                        )
+                                        .help("File with the body to update with")
                                         .value_name("FILE")
                                         .requires("network-id")
                                         .requires("member-id")
@@ -684,10 +652,7 @@ fn one_cli() -> Command {
                                     Arg::new("authorize-all")
                                         .short('A')
                                         .long("authorize-all")
-                                        .help(
-                                            "Authorize all members of the \
-                                             network",
-                                        )
+                                        .help("Authorize all members of the network")
                                         .action(ArgAction::SetTrue)
                                         .requires("network-id")
                                         .required_unless_present_any([
@@ -720,10 +685,7 @@ fn one_cli() -> Command {
                                     Arg::new("member-id")
                                         .short('m')
                                         .long("member-id")
-                                        .help(
-                                            "Identifier of the network member \
-                                             to delete",
-                                        )
+                                        .help("Identifier of the network member to delete")
                                         .value_name("MEMID")
                                         .requires("network-id"),
                                 ]),
@@ -734,10 +696,7 @@ fn one_cli() -> Command {
                                     Arg::new("network-id")
                                         .short('n')
                                         .long("network-id")
-                                        .help(
-                                            "ID of the network to list \
-                                             members of it",
-                                        )
+                                        .help("ID of the network to list members of it")
                                         .value_name("NWID")
                                         .required(true),
                                 ),
