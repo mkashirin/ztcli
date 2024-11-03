@@ -1,6 +1,6 @@
-<p style="text-align:center;">
-# ZTCLI
+<h1 style="text-align:center;">ZTCLI</h1>
 
+<p style="text-align:center;">
 ZTCLI (ZeroTier CLI) is a minimal CLI that combines ZeroTier Central and
 ZeroTierOne Service essential functionality. This tool allows for seamless
 LAN gaming and ZeroTier-hosted free plan network manipulation.
