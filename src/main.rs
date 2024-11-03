@@ -2,6 +2,12 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    ztcli::cli().await?;
+    match ztcli::cli().await {
+        Ok(_) => {}
+        Err(err) => {
+            eprintln!("ZTCLI returned an error: {err}");
+            std::process::exit(1);
+        }
+    };
     Ok(())
 }

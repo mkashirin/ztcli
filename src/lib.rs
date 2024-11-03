@@ -75,8 +75,7 @@ impl FromEnv<central::Client> for central::Client {
         let rqwst_client = reqwest::Client::builder()
             .default_headers(headers)
             .build()
-            .map_err(|_| "No ZeroTier Central API token has been provided")
-            .unwrap();
+            .expect("No ZeroTier Central API token has been provided");
 
         central::Client::new_with_client(CENTRAL_BASE_URL, rqwst_client)
     }
@@ -781,10 +780,11 @@ impl<'a> OneCliHandler<'a> {
     async fn network_leave(&self, matches: &ArgMatches) -> Result<()> {
         let network_id = matches.get_one::<String>("id").unwrap().to_owned();
         let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
-
         self.client
             .network_membership_del_network(&zt_network_id)
-            .await?;
+            .await
+            .expect("Failed to leave network (ID: {network_id})");
+        println!("Left network (ID: {network_id})");
 
         // TODO: This and all the pieces like this (can return errors) must be
         // refactored to deliver solid error handling.
