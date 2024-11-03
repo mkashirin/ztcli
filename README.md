@@ -1,8 +1,10 @@
+<p style="text-align:center;">
 # ZTCLI
 
 ZTCLI (ZeroTier CLI) is a minimal CLI that combines ZeroTier Central and
 ZeroTierOne Service essential functionality. This tool allows for seamless
 LAN gaming and ZeroTier-hosted free plan network manipulation.
+</p>
 
 ## Prerequisites
 
@@ -18,34 +20,61 @@ an API token for the ZeroTier Central. You also need to install the agent
 First, download the [ZTCLI binary](https://github.com/mkashirin/ztcli/releases/download/0.1.0/).
 Open the directory with the downloaded binary via terminal.
 
+### Using Central API
+
 Generate an API token for your ZeroTier Central account and bind the evironment
 varibale named `ZTC_API_TOKEN` to it like so:
-```powershell
-$Env:ZTC_API_TOKEN="<central-api-token>"
+```bash
+ZTC_API_TOKEN="<central-api-token>"
 ```
 Then create a network via ZeroTier Central API as follows:
-```powershell
-.\ztcli.exe central network create --private --name="<nwname>"
+```bash
+./ztcli.exe central network create --name="<name>" --private 
 ```
 This would print out the brand new network short description with the ID. Use
 this ID to connect to the network on your machines like this:
-```powershell
-.\ztcli.exe one network post --id="<nwid>"
+```bash
+./ztcli.exe one network post --id="<nwid>"
 ```
 After that you need to authorize all the members on the network as in the line
 below:
-```powershell
-.\ztcli.exe central network update --authorize-all --id="<nwid>"
+```bash
+./ztcli.exe central network update --id="<nwid>" --authorize-all
 ```
-You can now list the networks joined for communication:
-```powershell
-.\ztcli.exe one network list
+
+### Using Self-hosted Controller
+
+First, create a network on the controller to host and give it a name like this:
+```bash
+./ztcli.exe one controller network post --name="<name>"
+```
+It should return the network ID. Then join the network created from other
+nodes as follows:
+```bash
+./ztcli.exe one network post --id="<nwid>"
+```
+After that, the addresses of the nodes can be viewed by execution of the line
+below on the controller hosting the network:
+```bash
+./ztcli.exe one controller member list --network-id="<nwid>"
+```
+Then, as with the Central API, the network members should be authorized by the
+controller like so:
+```bash
+./ztcli.exe one controller network post --id="<nwid>" --authorize-all
+```
+
+### Check Nodes Connection
+
+You can now list the networks joined:
+```bash
+./ztcli.exe one network list
 ```
 It would list all the networks your node has joined to about and their addresses.
 But more importantly it would list addresses assigned to your node, that other nodes
 can resolve it through. Now check the peer resolvability as in the following script,
 by running it on another node on your network:
-```powershell
+```bash
 ping "<your-assigned-address>"
 ```
 
@@ -53,12 +82,6 @@ If the ping went well, congratulations! You now have a VLAN, to play with your
 friends for example.
 
 ## Future
-
-### Self-hosting
-
-In the future ZTCLI will support fast controller setup (self-hosting). This
-would allow for no ZeroTier account registered, since we wouldn't need any free
-host to run the network.
 
 ### VPN Setup
 
