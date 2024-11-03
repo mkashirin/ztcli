@@ -39,12 +39,18 @@ pub async fn cli() -> Result<()> {
         Some(("central", subs)) => {
             let central_client = zerotier_central::Client::from_env();
             let handler = CentralCliHandler::new(&central_client);
-            handler.handle(subs).await.expect("Failed to handle Central CLI input");
+            handler
+                .handle(subs)
+                .await
+                .expect("Failed to handle Central CLI input");
         }
         Some(("one", subs)) => {
             let one_client = zerotier_one::Client::from_env();
             let handler = OneCliHandler::new(&one_client);
-            handler.handle(subs).await.expect("Failed to handle One CLI input");
+            handler
+                .handle(subs)
+                .await
+                .expect("Failed to handle One CLI input");
         }
         _ => {}
     }
