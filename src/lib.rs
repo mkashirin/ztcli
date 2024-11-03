@@ -1,3 +1,4 @@
+use core::panic;
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io::BufReader;
@@ -38,12 +39,12 @@ pub async fn cli() -> Result<()> {
         Some(("central", subs)) => {
             let central_client = zerotier_central::Client::from_env();
             let handler = CentralCliHandler::new(&central_client);
-            handler.handle(subs).await.unwrap();
+            handler.handle(subs).await.expect("Failed to handle Central CLI input");
         }
         Some(("one", subs)) => {
             let one_client = zerotier_one::Client::from_env();
             let handler = OneCliHandler::new(&one_client);
-            handler.handle(subs).await.unwrap();
+            handler.handle(subs).await.expect("Failed to handle One CLI input");
         }
         _ => {}
     }
@@ -89,7 +90,7 @@ impl FromEnv<one::Client> for one::Client {
             "linux" => PathBuf::from("/var/lib/zerotier-one/"),
             "macos" => PathBuf::from("~/Library/Application Support/ZeroTier/"),
             "windows" => PathBuf::from(r"\ProgramData\ZeroTier\One\"),
-            _ => todo!("Handle unsopported OS case properly"),
+            _ => panic!("Cannot find path to the authorization token"),
         };
         path_buf.push("authtoken.secret");
         let auth_token = read_to_string(path_buf).unwrap();
@@ -101,10 +102,7 @@ impl FromEnv<one::Client> for one::Client {
         let rqwst_client = reqwest::Client::builder()
             .default_headers(headers)
             .build()
-            .map_err(|_| {
-                "No ZeroTierOne authentication token has been provided"
-            })
-            .unwrap();
+            .expect("No ZeroTierOne authentication token has been provided");
 
         one::Client::new_with_client(ONE_BASE_URL, rqwst_client)
     }
@@ -706,7 +704,7 @@ struct OneCliHandler<'a> {
 }
 
 impl<'a> OneCliHandler<'a> {
-    /// Creates a new OneCliHandler.
+    /// Creates a new OneCliHandler instance.
     fn new(client: &'a one::Client) -> OneCliHandler<'a> {
         Self { client }
     }
@@ -723,14 +721,14 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
-    /// Shows node status.
+    /// Displays the node status.
     async fn handle_status(&self) -> Result<()> {
         let status = self.client.node_status_read_status().await?.into_inner();
         println!("{status}");
         Ok(())
     }
 
-    /// Lists all the available peers.
+    /// Lists all available peers.
     async fn handle_peers(&self) -> Result<()> {
         let peers = self.client.node_peer_read_networks().await?.into_inner();
         println!("List of the peers available (short):");
@@ -780,28 +778,10 @@ impl<'a> OneCliHandler<'a> {
     async fn network_leave(&self, matches: &ArgMatches) -> Result<()> {
         let network_id = matches.get_one::<String>("id").unwrap().to_owned();
         let zt_network_id = ZtNetworkId::from_str(network_id.as_str()).unwrap();
+
         self.client
             .network_membership_del_network(&zt_network_id)
-            .await
-            .expect("Failed to leave network (ID: {network_id})");
-        println!("Left network (ID: {network_id})");
-
-        // TODO: This and all the pieces like this (can return errors) must be
-        // refactored to deliver solid error handling.
-        // ```rust
-        // match self
-        //     .client
-        //     .network_membership_del_network(&zt_network_id)
-        //     .await
-        // {
-        //     std::result::Result::Ok(_) => {
-        //         println!("Left network (ID: {network_id})");
-        //     }
-        //     std::result::Result::Err(e) => {
-        //         eprintln!("Failed to leave network (ID: {network_id}): {e}");
-        //     }
-        // };
-        // ```
+            .await?;
 
         Ok(())
     }
@@ -820,6 +800,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Handles controller-related subcommands.
     async fn handle_controller(&self, matches: &ArgMatches) -> Result<()> {
         match matches.subcommand() {
             Some(("status", _)) => {
@@ -841,6 +822,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Handles controller network subcommands.
     async fn handle_controller_network(
         &self,
         matches: &ArgMatches,
@@ -856,6 +838,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Displays detailed network information.
     async fn controller_network_long(
         &self,
         matches: &ArgMatches,
@@ -877,6 +860,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Creates a new network.
     async fn controller_network_post(
         &self,
         matches: &ArgMatches,
@@ -966,6 +950,7 @@ impl<'a> OneCliHandler<'a> {
         }
     }
 
+    /// Deletes a network.
     async fn controller_network_delete(
         &self,
         matches: &ArgMatches,
@@ -980,6 +965,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Lists networks hosted by the controller.
     async fn controller_network_list(&self) -> Result<()> {
         let networks = self
             .client
@@ -997,6 +983,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Handles controller member subcommands.
     async fn handle_controller_member(
         &self,
         matches: &ArgMatches,
@@ -1010,6 +997,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Adds or updates a network member.
     async fn member_post(&self, matches: &ArgMatches) -> Result<()> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
@@ -1063,6 +1051,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Authorizes all network members.
     async fn member_post_authorize_all(
         &self,
         matches: &ArgMatches,
@@ -1091,6 +1080,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Deletes a network member.
     async fn member_delete(&self, matches: &ArgMatches) -> Result<()> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
@@ -1106,6 +1096,7 @@ impl<'a> OneCliHandler<'a> {
         Ok(())
     }
 
+    /// Lists network members.
     async fn member_list(
         &self,
         matches: &ArgMatches,
