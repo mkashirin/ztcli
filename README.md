@@ -77,7 +77,6 @@ by running it on another node on your network:
 ```bash
 ping "<your-assigned-address>"
 ```
-
 If the ping went well, congratulations! You now have a VLAN, to play with your
 friends for example.
 
@@ -88,3 +87,7 @@ friends for example.
 ZeroTier can be used to setup a VPN Exit Node, but the process involves much
 CURLing and typing long one-liners. ZTCLI will make this procedure more
 intuitive and straight forward.
+
+## Licencing
+
+This project is distributed under the MIT open source licence.
