@@ -24,58 +24,58 @@ Open the directory with the downloaded binary via terminal.
 
 Generate an API token for your ZeroTier Central account and bind the evironment
 varibale named `ZTC_API_TOKEN` to it like so:
-```bash
-ZTC_API_TOKEN="<central-api-token>"
+```shell
+ZTC_API_TOKEN=<central-api-token>
 ```
 Then create a network via ZeroTier Central API as follows:
-```bash
-./ztcli.exe central network create --name="<name>" --private 
+```shell
+./ztcli.exe central network create --name=<name> --private 
 ```
 This would print out the brand new network short description with the ID. Use
 this ID to connect to the network on your machines like this:
-```bash
-./ztcli.exe one network post --id="<nwid>"
+```shell
+./ztcli.exe one network post --id=<nwid>
 ```
 After that you need to authorize all the members on the network as in the line
 below:
-```bash
-./ztcli.exe central network update --id="<nwid>" --authorize-all
+```shell
+./ztcli.exe central network update --id=<nwid> --authorize-all
 ```
 
 ### Using Self-hosted Controller
 
 First, create a network on the controller to host and give it a name like this:
-```bash
-./ztcli.exe one controller network post --name="<name>"
+```shell
+./ztcli.exe one controller network post --name=<name>
 ```
 It should return the network ID. Then join the network created from other
 nodes as follows:
-```bash
-./ztcli.exe one network post --id="<nwid>"
+```shell
+./ztcli.exe one network post --id=<nwid>
 ```
 After that, the addresses of the nodes can be viewed by execution of the line
 below on the controller hosting the network:
-```bash
-./ztcli.exe one controller member list --network-id="<nwid>"
+```shell
+./ztcli.exe one controller member list --network-id=<nwid>
 ```
 Then, as with the Central API, the network members should be authorized by the
 controller like so:
-```bash
-./ztcli.exe one controller network post --id="<nwid>" --authorize-all
+```shell
+./ztcli.exe one controller network post --id=<nwid> --authorize-all
 ```
 
 ### Check Nodes Connection
 
 You can now list the networks joined:
-```bash
+```shell
 ./ztcli.exe one network list
 ```
 It would list all the networks your node has joined to about and their addresses.
 But more importantly it would list addresses assigned to your node, that other nodes
 can resolve it through. Now check the peer resolvability as in the following script,
 by running it on another node on your network:
-```bash
-ping "<your-assigned-address>"
+```shell
+ping <your-assigned-address>
 ```
 If the ping went well, congratulations! You now have a VLAN, to play with your
 friends for example.
