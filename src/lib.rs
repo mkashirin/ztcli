@@ -35,6 +35,23 @@ use {
 const CENTRAL_BASE_URL: &str = "https://api.zerotier.com/api/v1";
 const ONE_BASE_URL: &str = "http://localhost:9993";
 
+#[derive(Parser)]
+#[command(name = "zerotier-cli")]
+#[command(
+    about = "A minimal CLI combining ZeroTier Central and ZeroTier One Service essential functionality"
+)]
+#[command(arg_required_else_help = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Central(Central),
+    One(One),
+}
+
 /// Entry point of the CLI. Initializes clients and delegates execution.
 pub async fn cli() -> Result<()> {
     let matches = Cli::command().get_matches();
@@ -120,23 +137,6 @@ impl FromEnv<one::Client> for one::Client {
 /// This part is responsible for ZeroTier Central CLI.
 ///
 /// Defines subcommands and arguments for the ZeroTier Central CLI.
-#[derive(Parser)]
-#[command(name = "zerotier-cli")]
-#[command(
-    about = "A minimal CLI combining ZeroTier Central and ZeroTier One Service essential functionality"
-)]
-#[command(arg_required_else_help = true)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    Central(Central),
-    One(One),
-}
-
 #[derive(Args)]
 struct Central {
     #[command(subcommand)]
