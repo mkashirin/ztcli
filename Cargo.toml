@@ -1,12 +1,12 @@
 [package]
 name = "ztcli"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 licence = "MIT"
 
 [dependencies]
 anyhow = "1.0.90"
-clap = { version = "4.5.20", features = ["cargo"] }
+clap = { version = "4.5.20", features = ["cargo", "derive"] }
 progenitor-client = "0.8.0"
 reqwest = "0.12.8"
 serde_json = "1.0.128"

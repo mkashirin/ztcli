@@ -1,7 +1,11 @@
 use {
     anyhow::{Ok, Result},
-    central::types::{ApiToken, Member, Network},
-    clap::{command, value_parser, Arg, ArgAction, ArgMatches, Command},
+    central::types::{
+        ApiToken,
+        Member as CentralMember,
+        Network as CentralNetwork
+    },
+    clap::{Parser, Subcommand, CommandFactory, Args, command, ArgMatches},
     core::panic,
     one::types::{
         ControllerNetworkMember, ControllerNetworkMemberRequest,
@@ -33,11 +37,7 @@ const ONE_BASE_URL: &str = "http://localhost:9993";
 
 /// Entry point of the CLI. Initializes clients and delegates execution.
 pub async fn cli() -> Result<()> {
-    let matches = command!()
-        .about("A mininal CLI combining ZeroTier Central and ZeroTier One Service essential functionality")
-        .arg_required_else_help(true)
-        .subcommands([central_cli(), one_cli()])
-        .get_matches();
+    let matches = Cli::command().get_matches();
     match matches.subcommand() {
         Some(("central", subs)) => {
             let central_client = zerotier_central::Client::from_env();
@@ -120,162 +120,212 @@ impl FromEnv<one::Client> for one::Client {
 /// This part is responsible for ZeroTier Central CLI.
 ///
 /// Defines subcommands and arguments for the ZeroTier Central CLI.
-fn central_cli() -> Command {
-    Command::new("central")
-        .about("A minimal ZeroTier Central CLI")
-        .arg_required_else_help(true)
-        .subcommand_required(true)
-        .subcommands([
-            Command::new("status").about("Get the client status"),
-            Command::new("network")
-                .about("Interface for actions related to ZeroTier networks")
-                .args([
-                    Arg::new("id")
-                        .long("id")
-                        .help("Identifier of the network")
-                        .value_name("NWID"),
-                    Arg::new("as-json")
-                        .short('j')
-                        .long("as-json")
-                        .help("Print the requsted network as JSON")
-                        .value_name("NWID")
-                        .requires("id"),
-                ])
-                .subcommands([
-                    Command::new("create")
-                        .about("Create new network")
-                        .arg_required_else_help(true)
-                        .args([
-                            Arg::new("name")
-                                .short('N')
-                                .long("name")
-                                .help("Give network member a name")
-                                .value_name("NAME")
-                                .required(true),
-                            Arg::new("private")
-                                .short('p')
-                                .long("private")
-                                .help("Network access policy (default is public)")
-                                .action(ArgAction::SetTrue),
-                        ]),
-                    Command::new("update")
-                        .about("Update existing network")
-                        .arg_required_else_help(true)
-                        .args([
-                            Arg::new("network-id")
-                                .short('n')
-                                .long("network-id")
-                                .help("Identifier of the network")
-                                .value_name("NWID")
-                                .required(true),
-                            Arg::new("data")
-                                .short('d')
-                                .long("data")
-                                .help("File with the body to update with")
-                                .value_name("FILE")
-                                .requires("id")
-                                .value_parser(value_parser!(
-                                    std::path::PathBuf
-                                )),
-                        ]),
-                    Command::new("delete")
-                        .about("Delete existing network by id")
-                        .arg_required_else_help(true)
-                        .arg(
-                            Arg::new("id")
-                                .long("id")
-                                .help("Identifier of the network")
-                                .value_name("NWID")
-                                .required(true),
-                        ),
-                    Command::new("list").about("Lists available networks"),
-                ]),
-            Command::new("member")
-                .about("Network memeber(s) related actions")
-                .arg_required_else_help(true)
-                .subcommands([
-                    Command::new("update")
-                        .about("Update network member(s)")
-                        .args([
-                            Arg::new("network-id")
-                                .short('n')
-                                .long("network-id")
-                                .help("Identifier of the network")
-                                .value_name("NWID")
-                                .required(true),
-                            Arg::new("member-id")
-                                .short('m')
-                                .long("member-id")
-                                .help("Identifier of the member ot update")
-                                .value_name("MEMID")
-                                .requires("network-id"),
-                            Arg::new("data")
-                                .short('d')
-                                .long("data")
-                                .help("File with the body to update with")
-                                .value_name("FILE")
-                                .requires("network-id")
-                                .requires("member-id")
-                                .required_unless_present_any([
-                                    "authorize-all",
-                                    "name",
-                                ])
-                                .value_parser(value_parser!(
-                                    std::path::PathBuf
-                                )),
-                            Arg::new("authorize-all")
-                                .short('A')
-                                .long("authorize-all")
-                                .help("Authorize all members of the network")
-                                .action(ArgAction::SetTrue)
-                                .requires("network-id")
-                                .required_unless_present_any([
-                                    "data",
-                                    "name",
-                                    "member-id",
-                                ]),
-                            Arg::new("name")
-                                .short('N')
-                                .long("name")
-                                .help("Give network member a name")
-                                .value_name("NAME")
-                                .requires("network-id")
-                                .requires("member-id")
-                                .required_unless_present_any([
-                                    "authorize-all",
-                                    "data",
-                                ]),
-                        ]),
-                    Command::new("delete")
-                        .about("Delete network member")
-                        .arg_required_else_help(true)
-                        .args([
-                            Arg::new("network-id")
-                                .short('n')
-                                .long("network-id")
-                                .help("Identifier of the network")
-                                .value_name("NWID")
-                                .required(true),
-                            Arg::new("member-id")
-                                .short('m')
-                                .long("member-id")
-                                .help("Identifier of the network member to delete")
-                                .value_name("MEMID")
-                                .requires("network-id"),
-                        ]),
-                    Command::new("list")
-                        .about("List the network members")
-                        .arg_required_else_help(true)
-                        .arg(
-                            Arg::new("network-id")
-                                .short('n')
-                                .long("network-id")
-                                .help("ID of the network to list members of it")
-                                .value_name("NWID")
-                                .required(true),
-                        ),
-                ]),
-        ])
+#[derive(Parser)]
+#[command(name = "zerotier-cli")]
+#[command(
+    about = "A minimal CLI combining ZeroTier Central and ZeroTier One Service essential functionality"
+)]
+#[command(arg_required_else_help = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Central(Central),
+    One(One),
+}
+
+#[derive(Args)]
+struct Central {
+    #[command(subcommand)]
+    command: CentralCommands,
+}
+
+#[derive(Subcommand)]
+enum CentralCommands {
+    Status,
+    Network(Network),
+    Member(Member),
+}
+
+#[derive(Args)]
+struct Network {
+    #[arg(long, help = "Identifier of the network", value_name = "NWID")]
+    id: Option<String>,
+
+    #[arg(
+        short = 'j',
+        long,
+        help = "Print the requested network as JSON",
+        value_name = "NWID",
+        requires = "id"
+    )]
+    as_json: bool,
+
+    #[command(subcommand)]
+    command: NetworkCommands,
+}
+
+#[derive(Subcommand)]
+enum NetworkCommands {
+    Create(CreateNetwork),
+    Update(UpdateNetwork),
+    Delete(DeleteNetwork),
+    List,
+}
+
+#[derive(Args)]
+struct CreateNetwork {
+    #[arg(
+        short = 'N',
+        long,
+        help = "Give network member a name",
+        value_name = "NAME",
+        required = true
+    )]
+    name: String,
+
+    #[arg(
+        short = 'p',
+        long,
+        help = "Network access policy (default is public)",
+        action = clap::ArgAction::SetTrue
+    )]
+    private: bool,
+}
+
+#[derive(Args)]
+struct UpdateNetwork {
+    #[arg(
+        short = 'n',
+        long,
+        help = "Identifier of the network",
+        value_name = "NWID",
+        required = true
+    )]
+    network_id: String,
+
+    #[arg(
+        short = 'd',
+        long,
+        help = "File with the body to update with",
+        value_name = "FILE",
+        requires = "network_id",
+        value_parser = clap::value_parser!(PathBuf)
+    )]
+    data: Option<PathBuf>,
+}
+
+#[derive(Args)]
+struct DeleteNetwork {
+    #[arg(
+        long,
+        help = "Identifier of the network",
+        value_name = "NWID",
+        required = true
+    )]
+    id: String,
+}
+
+#[derive(Args)]
+struct Member {
+    #[command(subcommand)]
+    command: MemberCommands,
+}
+
+#[derive(Subcommand)]
+enum MemberCommands {
+    Update(UpdateMember),
+    Delete(DeleteMember),
+    List(ListMember),
+}
+
+#[derive(Args)]
+struct UpdateMember {
+    #[arg(
+        short = 'n',
+        long,
+        help = "Identifier of the network",
+        value_name = "NWID",
+        required = true
+    )]
+    network_id: String,
+
+    #[arg(
+        short = 'm',
+        long,
+        help = "Identifier of the member to update",
+        value_name = "MEMID",
+        requires = "network_id"
+    )]
+    member_id: Option<String>,
+
+    #[arg(
+        short = 'd',
+        long,
+        help = "File with the body to update with",
+        value_name = "FILE",
+        requires = "network_id",
+        requires = "member_id",
+        required_unless_present_any = ["authorize_all", "name"],
+        value_parser = clap::value_parser!(PathBuf)
+    )]
+    data: Option<PathBuf>,
+
+    #[arg(
+        short = 'A',
+        long, help = "Authorize all members of the network",
+        action = clap::ArgAction::SetTrue,
+        requires = "network_id",
+        required_unless_present_any = ["data", "name", "member_id"]
+    )]
+    authorize_all: bool,
+
+    #[arg(
+        short = 'N',
+        long,
+        help = "Give network member a name",
+        value_name = "NAME",
+        requires = "network_id",
+        requires = "member_id",
+        required_unless_present_any = ["authorize_all", "data"]
+    )]
+    name: Option<String>,
+}
+
+#[derive(Args)]
+struct DeleteMember {
+    #[arg(
+        short = 'n',
+        long,
+        help = "Identifier of the network",
+        value_name = "NWID",
+        required = true
+    )]
+    network_id: String,
+
+    #[arg(
+        short = 'm',
+        long,
+        help = "Identifier of the network member to delete",
+        value_name = "MEMID",
+        requires = "network_id"
+    )]
+    member_id: String,
+}
+
+#[derive(Args)]
+struct ListMember {
+    #[arg(
+        short = 'n',
+        long,
+        help = "ID of the network to list members of it",
+        value_name = "NWID",
+        required = true
+    )]
+    network_id: String,
 }
 
 /// Handler for ZeroTier Central CLI commands.
@@ -359,7 +409,7 @@ impl<'a> CentralCliHandler<'a> {
         let path = matches.get_one::<PathBuf>("data").unwrap().to_owned();
         let file = File::open(path).unwrap();
         let reader = BufReader::new(file);
-        let network: Network = serde_json::from_reader(reader).unwrap();
+        let network: CentralNetwork = serde_json::from_reader(reader).unwrap();
 
         let network_updated = self
             .client
@@ -414,7 +464,7 @@ impl<'a> CentralCliHandler<'a> {
             matches.get_one::<String>("member-id").unwrap().to_owned();
         let member = 'memb: {
             if let Some(name) = matches.get_one::<String>("name") {
-                let mut member: Member = self
+                let mut member: CentralMember = self
                     .client
                     .get_network_member(&network_id, &member_id)
                     .await?
@@ -424,10 +474,10 @@ impl<'a> CentralCliHandler<'a> {
             } else if let Some(path) = matches.get_one::<PathBuf>("data") {
                 let file = File::open(path).unwrap();
                 let reader = BufReader::new(file);
-                let member: Member = serde_json::from_reader(reader).unwrap();
+                let member: CentralMember = serde_json::from_reader(reader).unwrap();
                 break 'memb member;
             };
-            let empty_member: Member = serde_json::from_str("{}").unwrap();
+            let empty_member: CentralMember = serde_json::from_str("{}").unwrap();
             empty_member
         };
 
@@ -480,7 +530,7 @@ impl<'a> CentralCliHandler<'a> {
         &self,
         matches: &ArgMatches,
         display: bool,
-    ) -> Result<Vec<Member>> {
+    ) -> Result<Vec<CentralMember>> {
         let network_id =
             matches.get_one::<String>("network-id").unwrap().to_owned();
         let members = self
@@ -502,209 +552,268 @@ impl<'a> CentralCliHandler<'a> {
 /// This part is responsible for ZeroTierOne Service CLI.
 ///
 /// Defines subcommands and arguments for the ZeroTier One CLI.
-fn one_cli() -> Command {
-    Command::new("one")
-        .about("A minimal ZeroTierOne Service CLI")
-        .subcommand_required(true)
-        .subcommands([
-            Command::new("status").about("Gets the node status"),
-            Command::new("peers")
-                .about("List all the peers your node knows about"),
-            Command::new("network")
-                .about("Interface for actions related to networking")
-                .subcommands([
-                    Command::new("post")
-                        .about("Join or update the network with the given ID. All flags default to true")
-                        .arg_required_else_help(true)
-                        .args([
-                            Arg::new("id")
-                                .long("id")
-                                .help("Network ID to send POST request to")
-                                .value_name("NWID")
-                                .required(true),
-                            Arg::new("allow-dns")
-                                .short('d')
-                                .long("allow-dns")
-                                .help("Whether DNS addresses would be allowed")
-                                .action(ArgAction::SetFalse),
-                            Arg::new("allow-default")
-                                .short('D')
-                                .long("allow-default")
-                                .help("Whether default addresses would be allowed")
-                                .action(ArgAction::SetFalse),
-                            Arg::new("allow-managed")
-                                .short('m')
-                                .long("allow-managed")
-                                .help("Whether managed addresses would be allowed")
-                                .action(ArgAction::SetFalse),
-                            Arg::new("allow-global")
-                                .short('g')
-                                .long("allow-global")
-                                .help("Whether global addresses would be allowed")
-                                .action(ArgAction::SetFalse),
-                        ]),
-                    Command::new("leave")
-                        .about("Leave the network with the given ID")
-                        .arg_required_else_help(true)
-                        .arg(
-                            Arg::new("id")
-                                .long("id")
-                                .help("ID of the network to leave")
-                                .value_name("NWID")
-                                .required(true),
-                        ),
-                    Command::new("list").about("List all the networks that this node is joined to"),
-                ]),
-            Command::new("controller")
-                .about("Interfaces controller-related functionality")
-                .subcommand_required(true)
-                .subcommands([
-                    Command::new("status").about("Gets the controller status"),
-                    Command::new("network")
-                        .about("Controller networking manipulations")
-                        .args([
-                            Arg::new("id")
-                                .long("id")
-                                .help("Identifier of the network")
-                                .value_name("NWID"),
-                            Arg::new("as-json")
-                                .short('j')
-                                .long("as-json")
-                                .help("Print the requsted network as JSON")
-                                .action(ArgAction::SetTrue)
-                                .requires("id"),
-                        ])
-                        .subcommands([
-                            Command::new("post")
-                                .about("Update an existing network or create a new one")
-                                .args([
-                                    Arg::new("id")
-                                        .long("id")
-                                        .help("ID of the network to be updated")
-                                        .value_name("NWID")
-                                        .requires("data"),
-                                    Arg::new("data")
-                                        .short('d')
-                                        .long("data")
-                                        .help("File with the body to update with")
-                                        .value_name("FILE")
-                                        .requires("id"),
-                                    Arg::new("name")
-                                        .long("name")
-                                        .help("Name of the network to be created")
-                                        .value_name("NAME")
-                                        .required_unless_present_any([
-                                            "id", "data",
-                                        ]),
-                                ]),
-                            Command::new("delete")
-                                .about("Delete network hosted by controller")
-                                .arg(
-                                    Arg::new("id")
-                                        .long("id")
-                                        .help("Identifier of the network")
-                                        .value_name("NWID")
-                                        .required(true),
-                                ),
-                            Command::new("list").about("List all the networks hosted by this controller"),
-                        ]),
-                    Command::new("member")
-                        .about("Networks members-related actions")
-                        .args([
-                            Arg::new("id")
-                                .long("id")
-                                .help("Identifier of the member")
-                                .value_name("MEMID"),
-                            Arg::new("as-json")
-                                .short('j')
-                                .long("as-json")
-                                .help("Print the requsted member as JSON")
-                                .requires("id"),
-                        ])
-                        .subcommands([
-                            Command::new("post")
-                                .about("Update network member(s)")
-                                .args([
-                                    Arg::new("network-id")
-                                        .short('n')
-                                        .long("network-id")
-                                        .help("Identifier of the network")
-                                        .value_name("NWID")
-                                        .required(true),
-                                    Arg::new("member-id")
-                                        .short('m')
-                                        .long("member-id")
-                                        .help("Identifier of the member to update")
-                                        .value_name("MEMID")
-                                        .requires("network-id"),
-                                    Arg::new("data")
-                                        .short('d')
-                                        .long("data")
-                                        .help("File with the body to update with")
-                                        .value_name("FILE")
-                                        .requires("network-id")
-                                        .requires("member-id")
-                                        .required_unless_present_any([
-                                            "authorize-all",
-                                            "name",
-                                        ])
-                                        .value_parser(value_parser!(
-                                            std::path::PathBuf
-                                        )),
-                                    Arg::new("authorize-all")
-                                        .short('A')
-                                        .long("authorize-all")
-                                        .help("Authorize all members of the network")
-                                        .action(ArgAction::SetTrue)
-                                        .requires("network-id")
-                                        .required_unless_present_any([
-                                            "data",
-                                            "name",
-                                            "member-id",
-                                        ]),
-                                    Arg::new("name")
-                                        .short('N')
-                                        .long("name")
-                                        .help("Give network member a name")
-                                        .value_name("NAME")
-                                        .requires("network-id")
-                                        .requires("member-id")
-                                        .required_unless_present_any([
-                                            "authorize-all",
-                                            "data",
-                                        ]),
-                                ]),
-                            Command::new("delete")
-                                .about("Delete network member")
-                                .arg_required_else_help(true)
-                                .args([
-                                    Arg::new("network-id")
-                                        .short('n')
-                                        .long("network-id")
-                                        .help("Identifier of the network")
-                                        .value_name("NWID")
-                                        .required(true),
-                                    Arg::new("member-id")
-                                        .short('m')
-                                        .long("member-id")
-                                        .help("Identifier of the network member to delete")
-                                        .value_name("MEMID")
-                                        .requires("network-id"),
-                                ]),
-                            Command::new("list")
-                                .about("List the network members")
-                                .arg_required_else_help(true)
-                                .arg(
-                                    Arg::new("network-id")
-                                        .short('n')
-                                        .long("network-id")
-                                        .help("ID of the network to list members of it")
-                                        .value_name("NWID")
-                                        .required(true),
-                                ),
-                        ]),
-                ]),
-        ])
+#[derive(Args)]
+struct One {
+    #[command(subcommand)]
+    command: OneCommands,
+}
+
+#[derive(Subcommand)]
+enum OneCommands {
+    Status,
+    Peers,
+    Network(OneNetwork),
+    Controller(Controller),
+}
+
+#[derive(Args)]
+struct OneNetwork {
+    #[command(subcommand)]
+    command: OneNetworkCommands,
+}
+
+#[derive(Subcommand)]
+enum OneNetworkCommands {
+    Post(PostNetwork),
+    Leave(LeaveNetwork),
+    List,
+}
+
+#[derive(Args)]
+struct PostNetwork {
+    #[arg(
+        long,
+        help = "Network ID to send POST request to",
+        value_name = "NWID",
+        required = true
+    )]
+    id: String,
+
+    #[arg(
+        short = 'd',
+        long,
+        help = "Whether DNS addresses would be allowed",
+        action = clap::ArgAction::SetFalse
+    )]
+    allow_dns: bool,
+
+    #[arg(
+        short = 'D',
+        long,
+        help = "Whether default addresses would be allowed",
+        action = clap::ArgAction::SetFalse
+    )]
+    allow_default: bool,
+
+    #[arg(
+        short = 'm',
+        long,
+        help = "Whether managed addresses would be allowed",
+        action = clap::ArgAction::SetFalse
+    )]
+    allow_managed: bool,
+
+    #[arg(
+        short = 'g',
+        long,
+        help = "Whether global addresses would be allowed",
+        action = clap::ArgAction::SetFalse
+    )]
+    allow_global: bool,
+}
+
+#[derive(Args)]
+struct LeaveNetwork {
+    #[arg(
+        long,
+        help = "ID of the network to leave",
+        value_name = "NWID",
+        required = true
+    )]
+    id: String,
+}
+
+#[derive(Args)]
+struct Controller {
+    #[command(subcommand)]
+    command: ControllerCommands,
+}
+
+#[derive(Subcommand)]
+enum ControllerCommands {
+    Status,
+    Network(ControllerNetwork),
+    Member(ControllerMember),
+}
+
+#[derive(Args)]
+struct ControllerNetwork {
+    #[arg(long, help = "Identifier of the network", value_name = "NWID")]
+    id: Option<String>,
+
+    #[arg(
+        short = 'j',
+        long,
+        help = "Print the requested network as JSON",
+        action = clap::ArgAction::SetTrue,
+        requires = "id"
+     )]
+    as_json: bool,
+
+    #[command(subcommand)]
+    command: ControllerNetworkCommands,
+}
+
+#[derive(Subcommand)]
+enum ControllerNetworkCommands {
+    Post(PostControllerNetwork),
+    Delete(DeleteControllerNetwork),
+    List,
+}
+
+#[derive(Args)]
+struct PostControllerNetwork {
+    #[arg(
+        long,
+        help = "ID of the network to be updated",
+        value_name = "NWID",
+        requires = "data"
+    )]
+    id: Option<String>,
+
+    #[arg(
+        short = 'd',
+        long,
+        help = "File with the body to update with",
+        value_name = "FILE",
+        requires = "id"
+    )]
+    data: Option<PathBuf>,
+
+    #[arg(
+        long,
+        help = "Name of the network to be created",
+        value_name = "NAME",
+        required_unless_present_any = ["id", "data"]
+    )]
+    name: Option<String>,
+}
+
+#[derive(Args)]
+struct DeleteControllerNetwork {
+    #[arg(long, help = "Identifier of the network", value_name = "NWID", required = true)]
+    id: String,
+}
+
+#[derive(Args)]
+struct ControllerMember {
+    #[arg(long, help = "Identifier of the member", value_name = "MEMID")]
+    id: Option<String>,
+
+    #[arg(
+        short = 'j',
+        long,
+        help = "Print the requested member as JSON",
+        requires = "id"
+    )]
+    as_json: bool,
+
+    #[command(subcommand)]
+    command: ControllerMemberCommands,
+}
+
+#[derive(Subcommand)]
+enum ControllerMemberCommands {
+    Post(PostControllerMember),
+    Delete(DeleteControllerMember),
+    List(ListControllerMember),
+}
+
+#[derive(Args)]
+struct PostControllerMember {
+    #[arg(
+        short = 'n',
+        long,
+        help = "Identifier of the network",
+        value_name = "NWID",
+        required = true
+    )]
+    network_id: String,
+
+    #[arg(
+        short = 'm',
+        long,
+        help = "Identifier of the member to update",
+        value_name = "MEMID",
+        requires = "network_id"
+    )]
+    member_id: String,
+
+    #[arg(
+        short = 'd',
+        long,
+        help = "File with the body to update with",
+        value_name = "FILE",
+        requires = "network_id",
+        requires = "member_id",
+        required_unless_present_any = ["authorize_all", "name"],
+        value_parser = clap::value_parser!(PathBuf)
+    )]
+    data: Option<PathBuf>,
+
+    #[arg(
+        short = 'A',
+        long,
+        help = "Authorize all members of the network",
+        action = clap::ArgAction::SetTrue,
+        requires = "network_id",
+        required_unless_present_any = ["data", "name", "member_id"]
+    )]
+    authorize_all: bool,
+
+    #[arg(
+        short = 'N',
+        long,
+        help = "Give network member a name",
+        value_name = "NAME",
+        requires = "network_id",
+        requires = "member_id",
+        required_unless_present_any = ["authorize_all", "data"]
+    )]
+    name: Option<String>,
+}
+
+#[derive(Args)]
+struct DeleteControllerMember {
+    #[arg(
+        short = 'n',
+        long,
+        help = "Identifier of the network",
+        value_name = "NWID",
+        required = true
+    )]
+    network_id: String,
+
+    #[arg(
+        short = 'm',
+        long,
+        help = "Identifier of the network member to delete",
+        value_name = "MEMID",
+        requires = "network_id"
+    )]
+    member_id: String,
+}
+
+#[derive(Args)]
+struct ListControllerMember {
+    #[arg(
+        short = 'n',
+        long,
+        help = "ID of the network to list members of it",
+        value_name = "NWID",
+        required = true
+    )]
+    network_id: String,
 }
 
 /// Handler for ZeroTier One CLI commands.
